@@ -1,0 +1,31 @@
+pkgname=lapi-launcher
+pkgver=0.1.0
+pkgrel=1
+pkgdesc='A terminal application launcher for Linux'
+arch=('x86_64')
+license=('custom')
+depends=('glibc' 'gcc-libs')
+backup=('etc/lapi-launcher/config.toml')
+options=('!strip')
+source=()
+sha256sums=()
+
+package() {
+    local project_root="$startdir/../.."
+    local binary="${LAPI_BINARY:?Set LAPI_BINARY to the absolute precompiled lapi-launcher binary}"
+
+    [[ -x "$binary" ]] || {
+        printf '%s\n' "LAPI_BINARY is not an executable file: $binary" >&2
+        return 1
+    }
+
+    install -Dm755 "$binary" "$pkgdir/usr/bin/lapi-launcher"
+    install -Dm644 "$project_root/config.example.toml" \
+        "$pkgdir/etc/lapi-launcher/config.toml"
+    install -Dm644 "$project_root/resources/logo.png" \
+        "$pkgdir/etc/lapi-launcher/logo.png"
+    install -Dm644 "$project_root/resources/lapi-launcher.desktop" \
+        "$pkgdir/usr/share/applications/lapi-launcher.desktop"
+    install -Dm644 "$project_root/resources/logo.png" \
+        "$pkgdir/usr/share/icons/hicolor/256x256/apps/lapi-launcher.png"
+}

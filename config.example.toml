@@ -1,0 +1,27 @@
+[logo]
+source = "builtin"
+path = "./logo.png"
+width = 22
+height = 7
+# Set an absolute or ~/ path here to use a custom logo instead.
+
+[images]
+enabled = true
+protocol = "auto"
+# icon_theme = "breeze"
+
+[launcher]
+terminal = []
+recent_limit = 12
+close_on_launch = false
+
+[applications]
+extra_dirs = []
+# desktop_dir = "~/Desktop"
+
+[buttons]
+launcher_background = "#a6e3a1"
+installer_background = "#dc2626"
+manager_background = "#dc2626"
+launcher_foreground = "#000000"
+installer_manager_foreground = "#ffffff"

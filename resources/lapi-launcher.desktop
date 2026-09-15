@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Lapi Launcher
+Comment=A terminal application launcher for Linux
+Exec=lapi-launcher
+Icon=lapi-launcher
+Terminal=true
+Categories=Utility;
+Keywords=launcher;applications;terminal;
+StartupNotify=false
