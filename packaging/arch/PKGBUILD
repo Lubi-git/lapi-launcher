@@ -2,8 +2,9 @@ pkgname=lapi-launcher
 pkgver=0.1.0
 pkgrel=1
 pkgdesc='A terminal application launcher for Linux'
+url='https://github.com/Lubi-git/lapi-launcher'
 arch=('x86_64')
-license=('custom')
+license=('MIT')
 depends=('glibc' 'gcc-libs')
 backup=('etc/lapi-launcher/config.toml')
 options=('!strip')
@@ -28,4 +29,6 @@ package() {
         "$pkgdir/usr/share/applications/lapi-launcher.desktop"
     install -Dm644 "$project_root/resources/logo.png" \
         "$pkgdir/usr/share/icons/hicolor/256x256/apps/lapi-launcher.png"
+    install -Dm644 "$project_root/LICENSE" \
+        "$pkgdir/usr/share/licenses/lapi-launcher/LICENSE"
 }

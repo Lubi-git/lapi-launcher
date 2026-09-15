@@ -21,9 +21,9 @@ Build the release binary for the target architecture first and publish that file
 with its checksum. The PKGBUILD expects an executable Linux binary through
 `LAPI_BINARY`, not a Rust source build. The current package targets `x86_64`.
 
-Before publishing to an Arch repository, replace the maintainer and license
-metadata with the project’s final values, update the package version and release,
-and verify the binary ABI against the oldest supported Arch environment.
+Before publishing to an Arch repository, add the final maintainer metadata,
+update the package version and release, and verify the binary ABI against the
+oldest supported Arch environment.
 
 ## Build
 

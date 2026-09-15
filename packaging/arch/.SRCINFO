@@ -1,0 +1,13 @@
+pkgbase = lapi-launcher
+	pkgdesc = A terminal application launcher for Linux
+	pkgver = 0.1.0
+	pkgrel = 1
+	url = https://github.com/Lubi-git/lapi-launcher
+	arch = x86_64
+	license = MIT
+	depends = glibc
+	depends = gcc-libs
+	options = !strip
+	backup = etc/lapi-launcher/config.toml
+
+pkgname = lapi-launcher

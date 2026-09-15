@@ -3,6 +3,8 @@ name = "lapi-launcher"
 version = "0.1.0"
 edition = "2024"
 description = "A terminal application launcher for Linux"
+license = "MIT"
+repository = "https://github.com/Lubi-git/lapi-launcher"
 
 [dependencies]
 anyhow = "1"
