@@ -7,28 +7,32 @@ arch=('x86_64')
 license=('MIT')
 depends=('glibc' 'gcc-libs')
 backup=('etc/lapi-launcher/config.toml')
-options=('!strip')
-source=()
-sha256sums=()
+options=('!strip' '!debug')
+source_x86_64=(
+    "lapi-launcher::https://github.com/Lubi-git/lapi-launcher/releases/download/v${pkgver}/lapi-launcher"
+    "config.toml::https://raw.githubusercontent.com/Lubi-git/lapi-launcher/v${pkgver}/config.example.toml"
+    "logo.png::https://raw.githubusercontent.com/Lubi-git/lapi-launcher/v${pkgver}/resources/logo.png"
+    "lapi-launcher.desktop::https://raw.githubusercontent.com/Lubi-git/lapi-launcher/v${pkgver}/resources/lapi-launcher.desktop"
+    "LICENSE::https://raw.githubusercontent.com/Lubi-git/lapi-launcher/v${pkgver}/LICENSE"
+)
+sha256sums_x86_64=(
+    '04f5d0cb8521726632a68920c5ac56ac88181bf17559009f4ee9f6df47c62015'
+    'ad1489736450155537a9c3ae5527510610d30667682b732a6fd339726e6272cf'
+    '32e30e5f661efbf4b97ba89715789aa5bf8549843b7abdc6b6f0dc2bd20ec50e'
+    '92e9f4e437d1931b234809168eba6280fb15bd292202eb8f70c0e4b458fae1bb'
+    '725356961fa16dd19ee5b018258d50e4848b75eccaa556fdf567f169cf496ea1'
+)
 
 package() {
-    local project_root="$startdir/../.."
-    local binary="${LAPI_BINARY:?Set LAPI_BINARY to the absolute precompiled lapi-launcher binary}"
-
-    [[ -x "$binary" ]] || {
-        printf '%s\n' "LAPI_BINARY is not an executable file: $binary" >&2
-        return 1
-    }
-
-    install -Dm755 "$binary" "$pkgdir/usr/bin/lapi-launcher"
-    install -Dm644 "$project_root/config.example.toml" \
+    install -Dm755 "$srcdir/lapi-launcher" "$pkgdir/usr/bin/lapi-launcher"
+    install -Dm644 "$srcdir/config.toml" \
         "$pkgdir/etc/lapi-launcher/config.toml"
-    install -Dm644 "$project_root/resources/logo.png" \
+    install -Dm644 "$srcdir/logo.png" \
         "$pkgdir/etc/lapi-launcher/logo.png"
-    install -Dm644 "$project_root/resources/lapi-launcher.desktop" \
+    install -Dm644 "$srcdir/lapi-launcher.desktop" \
         "$pkgdir/usr/share/applications/lapi-launcher.desktop"
-    install -Dm644 "$project_root/resources/logo.png" \
+    install -Dm644 "$srcdir/logo.png" \
         "$pkgdir/usr/share/icons/hicolor/256x256/apps/lapi-launcher.png"
-    install -Dm644 "$project_root/LICENSE" \
+    install -Dm644 "$srcdir/LICENSE" \
         "$pkgdir/usr/share/licenses/lapi-launcher/LICENSE"
 }

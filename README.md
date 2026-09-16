@@ -143,16 +143,22 @@ configuration logo.
 
 ## Pacman Binary Package
 
-The release package is designed around an already compiled lapi-launcher binary.
-It does not compile Rust code during installation.
+The PKGBUILD downloads the already compiled `lapi-launcher` asset from the
+matching GitHub Release. It does not compile Rust code during installation.
 
 [packaging/arch](packaging/arch) provides the Pacman PKGBUILD and .SRCINFO. The
 global configuration is a Pacman backup file, so upgrades never overwrite an
 administrator-edited configuration.
 
 The package installs the binary, desktop entry, hicolor icon, global
-configuration, and official logo. See [packaging/README.md](packaging/README.md)
-for release input, ABI, and packaging instructions.
+configuration, and official logo. GitHub publishes a SHA-256 digest for each
+release asset, while the PKGBUILD contains the checksums required by `makepkg`.
+See [packaging/README.md](packaging/README.md) for release input, ABI, and
+packaging instructions.
+
+Releases may also include a prebuilt Pacman package named
+`lapi-launcher.pkg.tar.zst`. Install it directly on Arch Linux with
+`sudo pacman -U lapi-launcher.pkg.tar.zst`.
 
 ## System Information
 
