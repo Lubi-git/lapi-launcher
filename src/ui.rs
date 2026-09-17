@@ -12,9 +12,8 @@ use crate::{
     icons::{Assets, Source},
 };
 
-pub const BACKGROUND: Color = Color::Rgb(24, 24, 37);
-const SURFACE: Color = Color::Rgb(36, 36, 52);
-const FOREGROUND: Color = Color::Rgb(205, 214, 244);
+pub const BACKGROUND: Color = Color::Reset;
+const FOREGROUND: Color = Color::Reset;
 const MUTED: Color = Color::Rgb(127, 132, 156);
 const ACCENT: Color = Color::Rgb(203, 166, 247);
 const CYAN: Color = Color::Rgb(137, 220, 235);
@@ -26,7 +25,7 @@ const GROUP_GAP: u16 = 1;
 
 pub fn draw(frame: &mut Frame, app: &mut App, assets: &mut Option<Assets>) {
     let screen = frame.area();
-    frame.render_widget(Block::new().bg(BACKGROUND).fg(FOREGROUND), screen);
+    frame.render_widget(Block::new().fg(FOREGROUND), screen);
     app.hits.clear();
     app.system_rows = [0; 3];
     if screen.width < 40 || screen.height < 20 {
@@ -65,23 +64,22 @@ fn render_context_menu(
     screen: Rect,
     index: usize,
 ) {
-    let width = screen.width.saturating_sub(4).min(52);
+    let width = screen.width.saturating_sub(4).min(56);
     let area = Rect::new(
         screen.x + (screen.width - width) / 2,
-        screen.y + screen.height.saturating_sub(9) / 2,
+        screen.y + screen.height.saturating_sub(10) / 2,
         width,
-        9,
+        10,
     );
     let application = &app.apps[index];
     frame.render_widget(Clear, area);
     let block = Block::bordered()
         .border_type(BorderType::Rounded)
-        .title(application.name.as_str())
-        .border_style(Style::new().fg(ACCENT))
-        .bg(SURFACE);
+        .title(app.text.application_actions())
+        .border_style(Style::new().fg(ACCENT));
     let inner = block.inner(area);
     frame.render_widget(block, area);
-    let icon = Rect::new(inner.x + 1, inner.y + 1, 6, 3);
+    let icon = Rect::new(inner.x + 2, inner.y + 1, 7, 4);
     if let (Some(assets), Some(name)) = (assets.as_mut(), application.entry.icon()) {
         assets.render(
             frame,
@@ -90,22 +88,30 @@ fn render_context_menu(
             icon,
         );
     }
+    frame.render_widget(
+        Paragraph::new(application.name.as_str())
+            .fg(ACCENT)
+            .bold()
+            .wrap(Wrap { trim: true }),
+        Rect::new(inner.x + 11, inner.y + 1, inner.width.saturating_sub(13), 2),
+    );
     let action = if application.on_desktop {
         app.text.remove_from_desktop()
     } else {
         app.text.pin_to_desktop()
     };
-    let action_area = Rect::new(inner.x + 9, inner.y + 1, inner.width.saturating_sub(10), 2);
+    let action_area = Rect::new(inner.x + 2, inner.y + 5, inner.width.saturating_sub(4), 1);
     frame.render_widget(
-        Paragraph::new(action)
-            .centered()
-            .fg(FOREGROUND)
-            .block(Block::bordered().border_style(Style::new().fg(ACCENT))),
+        Paragraph::new(action).centered().style(
+            Style::new()
+                .fg(ACCENT)
+                .add_modifier(Modifier::REVERSED | Modifier::BOLD),
+        ),
         action_area,
     );
     frame.render_widget(
         Paragraph::new(app.text.context_hint()).centered().fg(MUTED),
-        Rect::new(inner.x, inner.y + 5, inner.width, 1),
+        Rect::new(inner.x + 1, inner.y + 7, inner.width.saturating_sub(2), 1),
     );
     app.hits.push(Hit {
         area,
@@ -667,10 +673,7 @@ fn render_grid(
                     .fg(if selected { ACCENT } else { FOREGROUND })
                     .bold(),
             ))];
-            frame.render_widget(
-                Paragraph::new(text).bg(if selected { SURFACE } else { BACKGROUND }),
-                tile,
-            );
+            frame.render_widget(Paragraph::new(text).bg(BACKGROUND), tile);
         } else {
             let icon_width = tile.width.min(12);
             let icon_box = Rect::new(
@@ -828,8 +831,7 @@ fn render_help(frame: &mut Frame, screen: Rect, text: crate::i18n::Translator) {
         .border_type(BorderType::Rounded)
         .borders(Borders::ALL)
         .title(text.help_title())
-        .border_style(Style::new().fg(ACCENT))
-        .bg(SURFACE);
+        .border_style(Style::new().fg(ACCENT));
     let inner = block.inner(area).inner(Margin::new(1, 0));
     frame.render_widget(block, area);
     let text = text.help().join("\n");

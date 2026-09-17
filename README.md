@@ -1,237 +1,134 @@
 # Lapi Launcher
 
-Lapi Launcher is a keyboard-first Linux application launcher written in Rust.
-Its terminal user interface is inspired by Yazi: a dark layout, subtle borders,
-fuzzy search, mouse and keyboard navigation, and optional in-terminal images.
-It is a single native binary; it does not need a server, daemon, or background
-process.
+<p align="center">
+  <img src="resources/logo.png" alt="Lapi Launcher logo" width="160">
+</p>
 
-## Run
+<p align="center">
+  <strong>A fast, keyboard-first Linux application launcher for the terminal.</strong><br>
+  A Yazi-inspired TUI with fuzzy search, native terminal images, and no background service.
+</p>
 
-    cargo run --release
+<p align="center">
+  <img src="assets/origin.png" alt="Lapi Launcher home view with system information, Desktop, and Recent applications">
+</p>
 
-Lapi Launcher requires an interactive terminal and a minimum viewport of
-40 × 20 cells. Desktop and Recent keep one launcher row each. Use the mouse
-wheel, Page Up, or Page Down to scroll the complete home view when necessary.
+## Built for a focused workflow
 
-    official logo
-    System information
-    ├ ▸ Operating System      › distribution
-    ├ ▸ Desktop Environment   › desktop session
-    └ ▸ PC                    › hardware
+- **Start quickly** — one native Rust binary; no daemon, server, or runtime to manage.
+- **Find anything** — fuzzy-search installed applications, desktop entries, files, and folders.
+- **Stay in the terminal** — use keyboard, mouse, scroll wheel, and terminal-native icon rendering.
+- **Keep your desktop curated** — pin or remove `.desktop` entries directly from the application menu.
+- **Know your system** — inspect operating-system, session, hardware, GPU, RAM, and persistent-storage details.
+- **Speak your language** — English and Spanish follow your session locale, with a configuration override.
 
-     LAUNCHER        INSTALLER          MANAGER
+## See it in action
 
-    ╭ Search ─────────────────────────────────────────╮
-    │ Type an application name…                        │
-    ╰─────────────────────────────────────────────────╯
-    ▸ Desktop
-       ╭──────────╮     ╭──────────╮
-       │   icon   │     │   icon   │
-       ╰──────────╯     ╰──────────╯
-          App              App
+### Home view
 
-      Recent
-       applications launched by Lapi
+The home screen keeps your Desktop and recently opened entries visible in compact, single-row sections. Expand system rows when you need more detail, then scroll the complete view naturally.
 
-Desktop lists only application entries, files, and folders placed directly in
-the user desktop directory. That location comes from XDG_DESKTOP_DIR in
-user-dirs.dirs. Recent contains items opened through Lapi, newest first.
+<p align="center">
+  <img src="assets/origin.png" alt="Lapi Launcher showing its home view" width="100%">
+</p>
 
-While searching, both groups are replaced by a vertical list containing an icon
-and one alias per result. Search includes installed applications plus desktop
-files and folders, without crawling the rest of the filesystem. Esc clears the
-query and restores the groups.
+### Search without leaving the flow
 
-LAUNCHER identifies the active tool. Clicking INSTALLER or MANAGER restores the
-terminal and replaces Lapi with lapi-installer or lapi-manager in that same
-terminal. If the selected binary is not present in PATH, Lapi stays open and
-reports the error.
+Start typing to replace the home sections with one focused result list. Every result presents a readable alias and its icon—never an implementation filename.
 
-Applications use their localized desktop-entry Name. Files use their basename
-without an extension, while folders retain their name. The interface and
---list show aliases only.
+<p align="center">
+  <img src="assets/search.png" alt="Lapi Launcher fuzzy-search result list" width="100%">
+</p>
 
-The interface supports Spanish and English. By default, `language = "auto"`
-uses the session locale. Set `[interface] language = "es"` or
-`[interface] language = "en"` to override it; the same choice is used for
-localized desktop-entry names when available.
+### Pin and unpin desktop entries
 
-## Controls
+Right-click an application from search or Recent to open its action window. Pinning copies its `.desktop` entry into your XDG desktop directory; removing it deletes only that desktop copy.
+
+<p align="center">
+  <img src="assets/selectpin.png" alt="Lapi Launcher application menu offering Pin to desktop" width="49%">
+  <img src="assets/selectunpin.png" alt="Lapi Launcher application menu offering Remove from desktop" width="49%">
+</p>
+
+### System information, when you need it
+
+Select Operating system, Desktop environment, or PC to expand passive startup details, including graphics hardware and persistent-storage capacity and usage.
+
+<p align="center">
+  <img src="assets/Systemview.png" alt="Lapi Launcher expanded system information view" width="100%">
+</p>
+
+## Quick start
+
+### Run a release binary
+
+Download the `lapi-launcher` asset for your architecture, then run it in an interactive terminal:
+
+```sh
+chmod +x lapi-launcher
+./lapi-launcher
+```
+
+### Install the Arch Linux package
+
+Download `lapi-launcher.pkg.tar.zst` from the matching release:
+
+```sh
+sudo pacman -U lapi-launcher.pkg.tar.zst
+```
+
+### Build from source
+
+```sh
+cargo run --release
+```
+
+Lapi Launcher needs an interactive terminal with a viewport of at least 40 × 20 cells. Image support is optional: when your terminal cannot render graphics, the interface remains fully usable.
+
+## Everyday controls
 
 | Action | Control |
 | --- | --- |
 | Search | Type or paste text |
-| Move selection | Arrow keys; the mouse wheel also moves search results |
-| Change section | Tab / Shift+Tab or click a heading; Tab cycles results while searching |
-| Select or open | Click / double-click; Enter opens the selection |
-| Scroll the home view | Mouse wheel, Page Up / Page Down, or Ctrl+Up / Ctrl+Down |
-| Jump to the beginning or end | Home / End |
-| Expand operating system, desktop, or PC | Click its row or use F2 / F3 / F4 |
-| Open Lapi Installer or Manager | Click INSTALLER / MANAGER |
+| Move selection | Arrow keys or mouse wheel |
+| Open selection | Enter, click, or double-click |
+| Pin or remove from Desktop | Right-click an application, then press Enter or click |
+| Expand system information | Click a row or press F2 / F3 / F4 |
+| Move through sections | Tab / Shift+Tab or click a heading |
 | Refresh applications | F5 |
-| Clear search | Ctrl+L / Ctrl+U / Esc |
-| Quit | Esc with an empty query or Ctrl+C |
-| Help | F1 |
+| Clear search / go back | Esc, Ctrl+L, or Ctrl+U |
+| Open help | F1 |
+| Quit | Esc on the home view or Ctrl+C |
 
-## Configuration and Official Logo
+## Configure it your way
 
-Lapi combines configuration files in this order:
+Lapi Launcher reads configuration with **user-first priority**:
 
-1. User: ${XDG_CONFIG_HOME:-~/.config}/lapi-launcher/config.toml
-2. Global: /etc/lapi-launcher/config.toml
+1. `${XDG_CONFIG_HOME:-~/.config}/lapi-launcher/config.toml`
+2. `/etc/lapi-launcher/config.toml`
 
-Every setting defined by the user takes precedence over the global setting. A
-user can override one button color without losing global defaults. When neither
-configuration exists, Lapi creates the user configuration from
-[config.example.toml](config.example.toml). If an older configuration exists
-next to the binary, it is migrated to the user location first.
+On first run, it creates a user configuration and places the official `logo.png` beside it. The default relative logo path always resolves to the logo closest to the configuration file. A custom logo can be any supported raster image; `PNG` is recommended.
 
-The official 256 × 256 PNG is stored at
-[resources/logo.png](resources/logo.png). The default configuration contains
-path = "./logo.png". When Lapi creates or migrates a user configuration, it
-writes the byte-identical official logo beside it as logo.png; an existing file
-is never overwritten. The Pacman package installs the same pair in
-/etc/lapi-launcher/, so the default path always resolves to the closest
-configuration logo.
+Use [config.example.toml](config.example.toml) to configure the logo, terminal-image protocol, language, recent-item limit, close-on-launch behavior, application directories, and Launcher/Installer/Manager button colors.
 
-    [logo]
-    source = "builtin"
-    path = "./logo.png"
-    width = 22
-    height = 7
+## Lapi ecosystem
 
-    [images]
-    enabled = true
-    protocol = "auto"
-    # icon_theme = "breeze"
+Lapi Launcher is useful on its own. When installed, its companion controls create a smooth terminal workflow:
 
-    [launcher]
-    terminal = []
-    recent_limit = 12
-    close_on_launch = false
+- **LAUNCHER** — identifies the current application.
+- **INSTALLER** — replaces Lapi Launcher with `lapi-installer` in the same terminal.
+- **MANAGER** — replaces Lapi Launcher with `lapi-manager` in the same terminal.
 
-    [applications]
-    extra_dirs = []
-    # desktop_dir = "~/Desktop"
+If either companion executable is unavailable in `PATH`, Lapi Launcher stays open and shows a clear status message.
 
-    [buttons]
-    launcher_background = "#a6e3a1"
-    installer_background = "#dc2626"
-    manager_background = "#dc2626"
-    launcher_foreground = "#000000"
-    installer_manager_foreground = "#ffffff"
+## Packaging and development
 
-- logo.path has priority over source. Relative paths resolve from the directory
-  containing their configuration file, and ~/ is supported.
-- Without a custom path, source = "builtin" displays the Lapi text mark.
-  source = "os" looks up the LOGO icon from /etc/os-release; desktop looks up
-  the active desktop environment icon.
-- width and height are terminal-cell dimensions. For a square image,
-  width = height × 2 is a useful starting ratio for terminal cells.
-- [buttons] uses five #RRGGBB colors. The Launcher foreground is independent;
-  Installer and Manager share their foreground color.
-- images.protocol supports auto, kitty, kitty-legacy, iterm2, sixel, and
-  halfblocks. Auto uses ratatui-image detection and uses the classic Kitty
-  protocol in Konsole when it is outside a multiplexer.
-- PNG, JPEG, GIF (first frame), WebP, and ICO are decoded. SVG/SVGZ and XPM are
-  not rasterized in this release. Use PNG for a custom logo.
-- Images are loaded, scaled with Lanczos3, and encoded on a worker. Native
-  graphics preserve source resolution up to 1024 pixels; halfblocks is limited
-  by terminal cells.
-- terminal is an argument list without shell interpretation. It is used only by
-  desktop entries that set Terminal=true.
-- recent_limit accepts 0–100. With close_on_launch = true, Lapi exits after
-  starting a process; the default keeps it open.
-- extra_dirs adds desktop-entry directories ahead of standard search paths.
-  desktop_dir overrides the Desktop group directory.
+- [Arch Linux binary package guide](packaging/README.md) — package contents, GitHub Release assets, local builds, and AUR publishing.
+- `cargo run -- --list` — inspect the discovered application catalog without opening the TUI.
+- `cargo run -- --no-images` — start without terminal image rendering.
+- `cargo run -- --print-default-config` — print the built-in configuration template.
 
-## Pacman Binary Package
+Lapi Launcher discovers desktop entries from standard XDG paths and supported Flatpak and Snap exports. Its local Recent history records only entries opened through Lapi.
 
-The PKGBUILD downloads the already compiled `lapi-launcher` asset from the
-matching GitHub Release. It does not compile Rust code during installation.
+## License
 
-[packaging/arch](packaging/arch) provides the Pacman PKGBUILD and .SRCINFO. The
-global configuration is a Pacman backup file, so upgrades never overwrite an
-administrator-edited configuration.
-
-The package installs the binary, desktop entry, hicolor icon, global
-configuration, and official logo. GitHub publishes a SHA-256 digest for each
-release asset, while the PKGBUILD contains the checksums required by `makepkg`.
-See [packaging/README.md](packaging/README.md) for release input, ABI, and
-packaging instructions.
-
-Releases may also include a prebuilt Pacman package named
-`lapi-launcher.pkg.tar.zst`. Install it directly on Arch Linux with
-`sudo pacman -U lapi-launcher.pkg.tar.zst`.
-
-## System Information
-
-System information is collected once at startup from /etc/os-release, /proc,
-/sys, and session variables. Expanded rows provide kernel, architecture, uptime,
-session, protocol, terminal, shell, model, CPU, threads, GPU, total RAM, and
-persistent storage details.
-
-Storage usage refers to the filesystem containing the home directory, not RAM.
-If the root filesystem is on a different persistent volume, it is listed
-separately. Lapi avoids presenting tmpfs and virtual overlay filesystems as
-physical disks, deduplicates Btrfs subvolumes, and follows partitions,
-device-mapper, encrypted, and LVM layers when Linux exposes enough information.
-
-Each persistent volume can report its filesystem, backing device model, device
-kind such as SSD/NVMe or HDD, and physical capacity. Physical device capacity
-does not necessarily equal filesystem capacity. Available space is the amount
-usable by the user; used space is obtained separately without counting reserved
-blocks as used data. The complete view scrolls when needed.
-
-These are passive startup details, not real-time monitoring data. Lapi does not
-run Fastfetch and does not assume any specific distribution.
-
-## Application Discovery and History
-
-Lapi reads XDG_DATA_HOME/applications, XDG_DATA_DIRS, and common Flatpak and
-Snap exports. It honors user-entry precedence, Hidden, NoDisplay, OnlyShowIn,
-NotShowIn, and TryExec; invalid entries are skipped.
-
-Application launching preserves quoted arguments, Exec field codes, the Path
-working directory, and Terminal. Commands never pass through a shell. D-Bus
-activated applications use gio launch when available, then fall back to Exec.
-Files and folders open through xdg-open or gio open; they are not executed as
-programs.
-
-History uses atomic replacement at XDG_STATE_HOME/lapi-launcher/recent.toml,
-normally ~/.local/state/lapi-launcher/recent.toml. It stores application
-identifiers and paths opened through Lapi, never search queries or activity
-from other programs.
-
-## CLI
-
-    cargo run -- --list
-    cargo run -- --no-images
-    cargo run -- --print-default-config
-    cargo run -- --help
-
---list prints catalog aliases without opening the interface, which is useful for
-checking discovery in the current desktop session.
-
-The packaged desktop entry is
-[resources/lapi-launcher.desktop](resources/lapi-launcher.desktop). It runs Lapi
-in the desktop-configured terminal.
-
-## Development
-
-    cargo fmt --check
-    cargo clippy --all-targets -- -D warnings
-    cargo test
-    cargo build --release --locked
-
-desktop discovers and launches applications; app handles events and search; ui
-renders and records click targets; icons resolves and prepares images; graphics
-handles classic Kitty graphics; system, storage, config, and history manage local
-state.
-
-Implementation references: [Ratatui](https://docs.rs/ratatui/0.30.2/),
-[ratatui-image](https://docs.rs/ratatui-image/11.0.8/ratatui_image/), and the
-[Desktop Entry Specification](https://specifications.freedesktop.org/desktop-entry/latest-single/).
-Image-protocol behavior follows [Yazi](https://yazi-rs.github.io/docs/image-preview/)
-and the [Kitty graphics protocol](https://sw.kovidgoyal.net/kitty/graphics-protocol/).
+Distributed under the [MIT License](LICENSE).

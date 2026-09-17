@@ -16,7 +16,7 @@ source_x86_64=(
     "LICENSE::https://raw.githubusercontent.com/Lubi-git/lapi-launcher/v${pkgver}/LICENSE"
 )
 sha256sums_x86_64=(
-    '83ae3e623c78f2b17f478856338da2142c9285864e25a72c9c813bbbb848a024'
+    '19d4c13345ddd0cb0f34ef00c2830b13ffb9a77834c556e64653b1974eb94095'
     'd9fe2e51967ff7ebb148a2704d3b1e3b009d6b5271835de6139e106a01f9739a'
     '32e30e5f661efbf4b97ba89715789aa5bf8549843b7abdc6b6f0dc2bd20ec50e'
     '92e9f4e437d1931b234809168eba6280fb15bd292202eb8f70c0e4b458fae1bb'

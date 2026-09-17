@@ -233,6 +233,13 @@ impl Translator {
             "Enter / click to confirm · Esc to close"
         }
     }
+    pub const fn application_actions(self) -> &'static str {
+        if self.is_spanish() {
+            "Aplicación"
+        } else {
+            "Application"
+        }
+    }
     pub fn desktop_updated(self, name: &str) -> String {
         if self.is_spanish() {
             format!("Escritorio actualizado: {name}")
