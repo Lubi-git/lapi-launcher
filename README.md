@@ -52,6 +52,11 @@ Applications use their localized desktop-entry Name. Files use their basename
 without an extension, while folders retain their name. The interface and
 --list show aliases only.
 
+The interface supports Spanish and English. By default, `language = "auto"`
+uses the session locale. Set `[interface] language = "es"` or
+`[interface] language = "en"` to override it; the same choice is used for
+localized desktop-entry names when available.
+
 ## Controls
 
 | Action | Control |

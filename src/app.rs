@@ -16,6 +16,7 @@ use crate::{
     config::Config,
     desktop::{self, Application, Catalog},
     history::History,
+    i18n::Translator,
     system::SystemInfo,
 };
 
@@ -68,6 +69,7 @@ pub struct Hit {
 
 pub struct App {
     pub config: Config,
+    pub text: Translator,
     pub apps: Vec<Application>,
     pub filtered: Vec<usize>,
     pub desktop: Vec<usize>,
@@ -101,13 +103,15 @@ pub struct App {
 
 impl App {
     pub fn new(config: Config, catalog: Catalog, history: History, history_path: PathBuf) -> Self {
+        let text = Translator::new(config.interface.language);
         let status = if catalog.skipped > 0 {
-            format!("Se omitieron {} accesos inválidos", catalog.skipped)
+            text.skipped_entries(catalog.skipped)
         } else {
-            "Listo para abrir aplicaciones".into()
+            text.ready().into()
         };
         let mut app = Self {
             config,
+            text,
             apps: catalog.apps,
             filtered: Vec::new(),
             desktop: Vec::new(),
@@ -118,7 +122,7 @@ impl App {
             offsets: [0; 3],
             columns: [1; 3],
             rows: [1; 3],
-            system: SystemInfo::read(),
+            system: SystemInfo::read(text),
             expanded: [false; 3],
             system_offsets: [0; 3],
             system_rows: [0; 3],
@@ -231,7 +235,7 @@ impl App {
                         Ok(catalog) => {
                             self.apps = catalog.apps;
                             self.filter();
-                            self.status = "Aplicaciones actualizadas".into();
+                            self.status = self.text.applications_updated().into();
                             self.status_error = false;
                         }
                         Err(error) => self.error(format!("{error:#}")),
@@ -429,10 +433,7 @@ impl App {
             self.next_program = Some(program);
             self.quit = true;
         } else {
-            self.error(format!(
-                "No se encontró {} en PATH; Lapi Launcher sigue activo",
-                program.command()
-            ));
+            self.error(self.text.program_missing(program.command()));
         }
     }
 
@@ -458,9 +459,9 @@ impl App {
                 self.children.push((name.clone(), child));
                 self.history
                     .record(&self.apps[index].id, self.config.launcher.recent_limit);
-                self.status = format!("Abriendo {name}");
+                self.status = self.text.opening(&name);
                 self.status_error = false;
-                if let Err(error) = self.history.save(&self.history_path) {
+                if let Err(error) = self.history.save(&self.history_path, self.text) {
                     self.error(format!("{error:#}"));
                 }
                 let selection = self.selected;
@@ -469,7 +470,7 @@ impl App {
                 self.selected[Section::Recent.index()] = 0;
                 self.quit = self.config.launcher.close_on_launch && !self.status_error;
             }
-            Err(_) => self.error(format!("No se pudo abrir {}", self.apps[index].name)),
+            Err(_) => self.error(self.text.cannot_open(&self.apps[index].name)),
         }
     }
 
@@ -479,7 +480,7 @@ impl App {
             .retain_mut(|(name, child)| match child.try_wait() {
                 Ok(Some(status)) => {
                     if !status.success() {
-                        failures.push(format!("{name} terminó con {status}"));
+                        failures.push(self.text.child_failed(name, status));
                     }
                     false
                 }

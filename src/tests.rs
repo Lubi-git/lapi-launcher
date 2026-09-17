@@ -98,7 +98,7 @@ fn search_replaces_groups_with_alias_only_vertical_results() {
         .collect();
     assert!(!contents.contains("Editor global"));
     assert!(!contents.contains(".desktop"));
-    assert!(contents.contains("Recent"));
+    assert!(contents.contains(app.text.recent()));
 }
 
 #[test]
@@ -304,7 +304,11 @@ fn image_worker_renders_a_png_and_reports_a_missing_logo() {
     image::RgbaImage::from_pixel(16, 16, image::Rgba([255, 100, 50, 255]))
         .save(&path)
         .unwrap();
-    let mut assets = Assets::new(Picker::halfblocks(), None);
+    let mut assets = Assets::new(
+        Picker::halfblocks(),
+        None,
+        crate::i18n::Translator::new(crate::i18n::Language::Spanish),
+    );
     let mut terminal = Terminal::new(TestBackend::new(20, 10)).unwrap();
     let source = Source::File(path);
     let mut rendered = false;
@@ -357,7 +361,12 @@ fn successful_launch_updates_recents_and_failed_launch_does_not() {
     assert_eq!(app.recent, [0]);
     assert!(!app.status_error);
     assert_eq!(
-        crate::history::History::load(&history_path).unwrap().recent,
+        crate::history::History::load(
+            &history_path,
+            crate::i18n::Translator::new(crate::i18n::Language::Spanish),
+        )
+        .unwrap()
+        .recent,
         ["Working.desktop"]
     );
     app.handle(key(KeyCode::Right)).unwrap();

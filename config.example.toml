@@ -10,6 +10,10 @@ enabled = true
 protocol = "auto"
 # icon_theme = "breeze"
 
+[interface]
+language = "auto"
+# Use "es" or "en" to override the language detected from the environment.
+
 [launcher]
 terminal = []
 recent_limit = 12

@@ -1,7 +1,9 @@
 use std::{collections::HashMap, env, fs, path::Path};
 
+use crate::i18n::Translator;
+
 pub struct SystemSection {
-    pub label: &'static str,
+    pub label: String,
     pub summary: String,
     pub details: Vec<(String, String)>,
 }
@@ -13,7 +15,7 @@ pub struct SystemInfo {
 }
 
 impl SystemInfo {
-    pub fn read() -> Self {
+    pub fn read(text: Translator) -> Self {
         let release = fs::read_to_string("/etc/os-release")
             .or_else(|_| fs::read_to_string("/usr/lib/os-release"))
             .unwrap_or_default();
@@ -31,21 +33,21 @@ impl SystemInfo {
             .filter_map(|line| line.split_once(':'))
             .find(|(key, _)| matches!(key.trim(), "model name" | "Hardware" | "Model"))
             .map(|(_, value)| value.trim().to_owned())
-            .unwrap_or_else(|| "No disponible".into());
+            .unwrap_or_else(|| text.unavailable().into());
         let memory = fs::read_to_string("/proc/meminfo").unwrap_or_default();
         let mut pc_details = vec![
-            ("Modelo".into(), read("/sys/class/dmi/id/product_name")),
+            (text.model().into(), read("/sys/class/dmi/id/product_name")),
             ("CPU".into(), cpu),
             (
-                "Hilos".into(),
+                text.threads().into(),
                 std::thread::available_parallelism()
                     .map(|count| count.to_string())
-                    .unwrap_or_else(|_| "No disponible".into()),
+                    .unwrap_or_else(|_| text.unavailable().into()),
             ),
         ];
         let graphics = read_graphics();
         if graphics.is_empty() {
-            pc_details.push(("GPU".into(), "No disponible".into()));
+            pc_details.push(("GPU".into(), text.unavailable().into()));
         } else {
             for (index, name) in graphics.iter().enumerate() {
                 let label = if graphics.len() == 1 {
@@ -56,20 +58,17 @@ impl SystemInfo {
                 pc_details.push((label, name.clone()));
             }
         }
-        pc_details.push(("RAM total".into(), format_memory(memory_total(&memory))));
-        pc_details.extend(crate::storage::details());
+        pc_details.push((
+            text.total_memory().into(),
+            format_memory(memory_total(&memory), text),
+        ));
+        pc_details.extend(crate::storage::details(text));
         let uptime = read("/proc/uptime")
             .split_whitespace()
             .next()
             .and_then(|seconds| seconds.parse::<f64>().ok())
-            .map(|seconds| {
-                format!(
-                    "{} h {} min",
-                    seconds as u64 / 3600,
-                    seconds as u64 % 3600 / 60
-                )
-            })
-            .unwrap_or_else(|| "No disponible".into());
+            .map(|seconds| text.uptime(seconds as u64 / 3600, seconds as u64 % 3600 / 60))
+            .unwrap_or_else(|| text.unavailable().into());
         let desktop_icon = match desktop.to_lowercase().as_str() {
             desktop if desktop.contains("kde") => "kde",
             desktop if desktop.contains("gnome") => "org.gnome.Settings",
@@ -85,26 +84,26 @@ impl SystemInfo {
             desktop_icon,
             sections: [
                 SystemSection {
-                    label: "Operative System",
+                    label: text.operating_system().into(),
                     summary: os_name,
                     details: vec![
                         ("Kernel".into(), read("/proc/sys/kernel/osrelease")),
-                        ("Arquitectura".into(), env::consts::ARCH.into()),
-                        ("Tiempo activo".into(), uptime),
+                        (text.architecture().into(), env::consts::ARCH.into()),
+                        (text.uptime_label().into(), uptime),
                     ],
                 },
                 SystemSection {
-                    label: "Desktop Environment",
+                    label: text.desktop_environment().into(),
                     summary: desktop,
                     details: vec![
-                        ("Sesión".into(), env_value("XDG_SESSION_DESKTOP")),
-                        ("Protocolo".into(), env_value("XDG_SESSION_TYPE")),
+                        (text.session().into(), env_value("XDG_SESSION_DESKTOP")),
+                        (text.protocol().into(), env_value("XDG_SESSION_TYPE")),
                         ("Terminal".into(), env_value("TERM")),
                         ("Shell".into(), env_value("SHELL")),
                     ],
                 },
                 SystemSection {
-                    label: "PC",
+                    label: "PC".into(),
                     summary: hostname,
                     details: pc_details,
                 },
@@ -128,9 +127,9 @@ fn memory_total(contents: &str) -> Option<u64> {
     })
 }
 
-fn format_memory(kib: Option<u64>) -> String {
+fn format_memory(kib: Option<u64>, text: Translator) -> String {
     kib.map(|value| format!("{:.1} GiB", value as f64 / 1_048_576.0))
-        .unwrap_or_else(|| "No disponible".into())
+        .unwrap_or_else(|| text.unavailable().into())
 }
 
 fn read_graphics() -> Vec<String> {

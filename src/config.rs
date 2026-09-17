@@ -7,6 +7,8 @@ use std::{
 use anyhow::{Context, Result, bail, ensure};
 use serde::{Deserialize, Serialize, de::Error as _};
 
+use crate::i18n::Language;
+
 pub const EXAMPLE: &str = include_str!("../config.example.toml");
 pub const OFFICIAL_LOGO: &[u8] = include_bytes!("../resources/logo.png");
 const CONFIG_FILE: &str = "config.toml";
@@ -22,6 +24,13 @@ pub struct Config {
     pub launcher: Launcher,
     pub applications: Applications,
     pub buttons: Buttons,
+    pub interface: Interface,
+}
+
+#[derive(Debug, Default, Deserialize, Serialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct Interface {
+    pub language: Language,
 }
 
 #[derive(Debug, Deserialize, Serialize)]

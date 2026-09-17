@@ -31,7 +31,7 @@ pub fn draw(frame: &mut Frame, app: &mut App, assets: &mut Option<Assets>) {
     app.system_rows = [0; 3];
     if screen.width < 40 || screen.height < 20 {
         frame.render_widget(
-            Paragraph::new("LAPI\nAmplía el terminal a 40 × 20.\nEsc / Ctrl+C: salir")
+            Paragraph::new(app.text.compact_terminal())
                 .fg(ACCENT)
                 .wrap(Wrap { trim: true }),
             screen,
@@ -51,7 +51,7 @@ pub fn draw(frame: &mut Frame, app: &mut App, assets: &mut Option<Assets>) {
         draw_home(frame, app, assets, area);
     }
     if app.help {
-        render_help(frame, screen);
+        render_help(frame, screen, app.text);
     }
 }
 
@@ -64,7 +64,7 @@ fn draw_home(frame: &mut Frame, app: &mut App, assets: &mut Option<Assets>, area
     let mut document_y = 0;
 
     if let Some(header) = document_area(viewport, scroll, document_y, 2) {
-        render_header(frame, header);
+        render_header(frame, app.text, header);
     }
     document_y += 2;
     if let Some(logo) = document_area(viewport, scroll, document_y, app.config.logo.height) {
@@ -104,7 +104,7 @@ fn draw_search(frame: &mut Frame, app: &mut App, assets: &mut Option<Assets>, ar
         Constraint::Length(2),
     ])
     .areas(area);
-    render_header(frame, header);
+    render_header(frame, app.text, header);
     render_logo(frame, app, assets, logo);
     render_system_compact(frame, app, system);
     render_lapi_buttons(frame, app, tools);
@@ -113,11 +113,11 @@ fn draw_search(frame: &mut Frame, app: &mut App, assets: &mut Option<Assets>, ar
     render_footer(frame, app, footer, false);
 }
 
-fn render_header(frame: &mut Frame, area: Rect) {
+fn render_header(frame: &mut Frame, text: crate::i18n::Translator, area: Rect) {
     frame.render_widget(
         Paragraph::new(Line::from(vec![
             Span::styled(" LAPI ", Style::new().bg(ACCENT).fg(BACKGROUND).bold()),
-            Span::styled("  APPLICATION LAUNCHER", Style::new().fg(MUTED)),
+            Span::styled(text.tagline(), Style::new().fg(MUTED)),
         ])),
         area,
     );
@@ -128,11 +128,11 @@ fn render_footer(frame: &mut Frame, app: &App, area: Rect, scrollable: bool) {
         Layout::vertical([Constraint::Length(1), Constraint::Length(1)]).areas(area);
     frame.render_widget(
         Paragraph::new(if scrollable {
-            "Rueda / PgUp / PgDn desplazar  ↑↓←→ mover  Tab sección  F1 ayuda  Esc salir"
+            app.text.footer_home()
         } else if app.searching() {
-            "↑↓ mover  Enter abrir  Esc volver  F1 ayuda"
+            app.text.footer_search()
         } else {
-            "↑↓←→ mover  Enter abrir  Tab sección  F1 ayuda  Esc salir"
+            app.text.footer_default()
         })
         .fg(MUTED),
         keys,
@@ -190,21 +190,21 @@ fn render_lapi_buttons(frame: &mut Frame, app: &mut App, area: Rect) {
     for (button, label, background, foreground, target) in [
         (
             launcher,
-            " LAUNCHER ",
+            app.text.launcher_button(),
             terminal_color(colors.launcher_background),
             terminal_color(colors.launcher_foreground),
             None,
         ),
         (
             installer,
-            " INSTALLER ",
+            app.text.installer_button(),
             terminal_color(colors.installer_background),
             terminal_color(colors.installer_manager_foreground),
             Some(LapiProgram::Installer),
         ),
         (
             manager,
-            " MANAGER ",
+            app.text.manager_button(),
             terminal_color(colors.manager_background),
             terminal_color(colors.installer_manager_foreground),
             Some(LapiProgram::Manager),
@@ -288,7 +288,10 @@ fn render_system_document(
     mut document_y: u16,
 ) -> u16 {
     if let Some(title) = document_area(viewport, scroll, document_y, 1) {
-        frame.render_widget(Paragraph::new("System information").fg(MUTED), title);
+        frame.render_widget(
+            Paragraph::new(app.text.system_information()).fg(MUTED),
+            title,
+        );
     }
     document_y += 1;
     if !app.system_focus.is_some_and(|index| app.expanded[index]) {
@@ -377,9 +380,9 @@ fn render_system_compact(frame: &mut Frame, app: &mut App, area: Rect) {
         });
     frame.render_widget(
         Paragraph::new(if scrollable {
-            "System information · Ctrl+↑↓ / rueda"
+            app.text.system_information_scroll()
         } else {
-            "System information"
+            app.text.system_information()
         })
         .fg(MUTED),
         Rect::new(area.x, area.y, area.width, 1),
@@ -466,7 +469,7 @@ fn render_search(frame: &mut Frame, app: &mut App, area: Rect) {
         .border_type(BorderType::Rounded)
         .border_style(Style::new().fg(ACCENT))
         .title(Line::from(vec![
-            Span::styled(" Buscar ", Style::new().fg(ACCENT)),
+            Span::styled(app.text.search(), Style::new().fg(ACCENT)),
             Span::styled(
                 format!("{} / {} ", app.filtered.len(), app.apps.len()),
                 Style::new().fg(MUTED),
@@ -475,7 +478,7 @@ fn render_search(frame: &mut Frame, app: &mut App, area: Rect) {
     let inner = block.inner(area);
     let line = if app.query.is_empty() {
         Line::from(Span::styled(
-            " Busca una aplicación o archivo…",
+            app.text.search_placeholder(),
             Style::new().fg(MUTED),
         ))
     } else {
@@ -504,9 +507,9 @@ fn render_grid(
     }
     let active = app.section == section;
     let label = if section == Section::Desktop {
-        "Desktop"
+        app.text.desktop()
     } else {
-        "Recent"
+        app.text.recent()
     };
     let indices = app.indices(section).to_vec();
     let title = Line::from(vec![
@@ -536,11 +539,11 @@ fn render_grid(
     if indices.is_empty() {
         frame.render_widget(Paragraph::new(title), header);
         let text = if !app.query.is_empty() {
-            "  Sin coincidencias. Esc limpia la búsqueda."
+            app.text.no_matches_clear()
         } else if section == Section::Recent {
-            "  Las aplicaciones que abras aparecerán aquí."
+            app.text.no_recent()
         } else {
-            "  No hay accesos a aplicaciones en tu escritorio."
+            app.text.no_desktop()
         };
         frame.render_widget(
             Paragraph::new(text).fg(MUTED).wrap(Wrap { trim: false }),
@@ -672,10 +675,7 @@ fn render_results(frame: &mut Frame, app: &mut App, assets: &mut Option<Assets>,
         return;
     }
     if app.filtered.is_empty() {
-        frame.render_widget(
-            Paragraph::new("  Sin coincidencias. Esc vuelve al escritorio.").fg(MUTED),
-            area,
-        );
+        frame.render_widget(Paragraph::new(app.text.no_matches_back()).fg(MUTED), area);
         return;
     }
     let section = Section::Results.index();
@@ -752,7 +752,7 @@ fn render_results(frame: &mut Frame, app: &mut App, assets: &mut Option<Assets>,
     }
 }
 
-fn render_help(frame: &mut Frame, screen: Rect) {
+fn render_help(frame: &mut Frame, screen: Rect, text: crate::i18n::Translator) {
     let width = screen.width.saturating_sub(4).min(70);
     let height = screen.height.saturating_sub(2).min(17);
     let area = Rect::new(
@@ -765,29 +765,12 @@ fn render_help(frame: &mut Frame, screen: Rect) {
     let block = Block::bordered()
         .border_type(BorderType::Rounded)
         .borders(Borders::ALL)
-        .title(" Lapi · controles ")
+        .title(text.help_title())
         .border_style(Style::new().fg(ACCENT))
         .bg(SURFACE);
     let inner = block.inner(area).inner(Margin::new(1, 0));
     frame.render_widget(block, area);
-    let text = [
-        "Escribe             Buscar aplicaciones (fuzzy)",
-        "↑ ↓ ← →             Mover la selección",
-        "Enter / doble clic  Abrir aplicación",
-        "Tab / Shift+Tab     Cambiar Desktop / Recent",
-        "PgUp / PgDown       Avanzar por páginas",
-        "Home / End          Primera / última aplicación",
-        "Rueda / PgUp / PgDn Desplazar la vista",
-        "F2 / F3 / F4        Expandir sistema / entorno / PC",
-        "Ctrl+↑ / Ctrl+↓     Desplazar la vista",
-        "INSTALLER / MANAGER Ejecutar herramientas Lapi",
-        "F5                  Volver a leer aplicaciones",
-        "Ctrl+L / Ctrl+U     Limpiar búsqueda",
-        "Esc                 Limpiar búsqueda; después salir",
-        "Ctrl+C              Salir",
-        "F1 / Esc / Enter    Cerrar esta ayuda",
-    ]
-    .join("\n");
+    let text = text.help().join("\n");
     frame.render_widget(
         Paragraph::new(text)
             .fg(FOREGROUND)

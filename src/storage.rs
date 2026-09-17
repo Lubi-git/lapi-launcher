@@ -8,7 +8,9 @@ use std::{
     process::{Command, Stdio},
 };
 
-pub fn details() -> Vec<(String, String)> {
+use crate::i18n::Translator;
+
+pub fn details(text: Translator) -> Vec<(String, String)> {
     let contents = fs::read_to_string("/proc/self/mountinfo").unwrap_or_default();
     let mounts = parse_mounts(&contents);
     let home = env::var_os("HOME").map(PathBuf::from);
@@ -16,36 +18,43 @@ pub fn details() -> Vec<(String, String)> {
     let selected = select_mounts(&mounts, home.as_deref());
     let mut rows = Vec::new();
     for (context, mount, path) in selected {
-        rows.push((format!("Disco {context}"), mount.fs_type.clone()));
+        rows.push((
+            match context {
+                "personal" => text.disk_personal(),
+                _ => text.disk_system(),
+            }
+            .into(),
+            mount.fs_type.clone(),
+        ));
         let devices = physical_devices(mount, Path::new("/sys"), Path::new("/dev"));
         if devices.is_empty() {
-            rows.push(("Unidad".into(), "No disponible".into()));
+            rows.push((text.drive().into(), text.unavailable().into()));
         } else {
             for (index, device) in devices.iter().enumerate() {
                 let label = if devices.len() == 1 {
-                    "Unidad".into()
+                    text.drive().into()
                 } else {
-                    format!("Unidad {}", index + 1)
+                    text.drive_number(index)
                 };
-                rows.push((label, describe_device(device)));
+                rows.push((label, describe_device(device, text)));
             }
         }
         let usage = filesystem_usage(&path);
         rows.push((
-            "Usado / total".into(),
+            text.used_total().into(),
             usage
                 .map(|usage| format!("{} / {}", format_gib(usage.used), format_gib(usage.total)))
-                .unwrap_or_else(|| "No disponible".into()),
+                .unwrap_or_else(|| text.unavailable().into()),
         ));
         rows.push((
-            "Disponible".into(),
+            text.available().into(),
             usage
                 .map(|usage| format_gib(usage.available))
-                .unwrap_or_else(|| "No disponible".into()),
+                .unwrap_or_else(|| text.unavailable().into()),
         ));
     }
     if rows.is_empty() {
-        rows.push(("Disco".into(), "No disponible".into()));
+        rows.push((text.disk().into(), text.unavailable().into()));
     }
     rows
 }
@@ -266,60 +275,52 @@ fn attribute(device: &Path, attribute: &str) -> Option<String> {
     (!value.is_empty()).then(|| value.to_owned())
 }
 
-fn describe_device(device: &Path) -> String {
+fn describe_device(device: &Path, text: Translator) -> String {
     let model = ["device/model", "device/name", "model"]
         .iter()
         .find_map(|name| attribute(device, name))
-        .unwrap_or_else(|| "Modelo no disponible".into());
+        .unwrap_or_else(|| text.model_unavailable().into());
     let capacity = attribute(device, "size")
         .and_then(|size| size.parse::<u64>().ok())
         .and_then(|sectors| sectors.checked_mul(512))
-        .map(format_capacity)
-        .unwrap_or_else(|| "capacidad no disponible".into());
-    format!("{model} · {} · {capacity}", device_type(device))
+        .map(|bytes| text.physical_capacity(bytes))
+        .unwrap_or_else(|| text.capacity_unavailable().into());
+    format!("{model} · {} · {capacity}", device_type(device, text))
 }
 
-fn device_type(device: &Path) -> &'static str {
+fn device_type(device: &Path, text: Translator) -> String {
     let name = device.file_name().unwrap_or_default().to_string_lossy();
     if device
         .components()
         .any(|part| part.as_os_str().to_string_lossy().starts_with("usb"))
     {
-        return "USB";
+        return "USB".into();
     }
     if name.starts_with("nvme") {
-        return "SSD NVMe";
+        return "SSD NVMe".into();
     }
     if name.starts_with("mmcblk") {
         return if attribute(device, "device/type").as_deref() == Some("MMC") {
-            "eMMC"
+            "eMMC".into()
         } else {
-            "SD/MMC"
+            "SD/MMC".into()
         };
     }
     if device
         .components()
         .any(|part| part.as_os_str().to_string_lossy().starts_with("virtio"))
     {
-        return "Virtual";
+        return "Virtual".into();
     }
     match attribute(device, "queue/rotational").as_deref() {
-        Some("0") => "SSD",
-        Some("1") => "HDD",
-        _ => "tipo no disponible",
+        Some("0") => "SSD".into(),
+        Some("1") => "HDD".into(),
+        _ => text.type_unavailable().into(),
     }
 }
 
 fn format_gib(bytes: u64) -> String {
     format!("{:.1} GiB", bytes as f64 / 1_073_741_824.0)
-}
-
-fn format_capacity(bytes: u64) -> String {
-    if bytes >= 1_000_000_000_000 {
-        format!("{:.2} TB físicos", bytes as f64 / 1_000_000_000_000.0)
-    } else {
-        format!("{:.1} GB físicos", bytes as f64 / 1_000_000_000.0)
-    }
 }
 
 #[cfg(test)]
@@ -434,7 +435,7 @@ mod tests {
         let devices = physical_devices(&mount, &sys, &dev);
         assert_eq!(devices.as_slice(), std::slice::from_ref(&drive));
         assert_eq!(
-            describe_device(&drive),
+            describe_device(&drive, Translator::new(crate::i18n::Language::Spanish)),
             "Fixture NVMe 1000 · SSD NVMe · 1.00 TB físicos"
         );
     }
@@ -468,14 +469,26 @@ mod tests {
         let temp = TempDir::new();
         let drive = temp.path.join("usb1/block/sda");
         write_attribute(&drive.join("queue/rotational"), "1\n");
-        assert_eq!(device_type(&drive), "USB");
+        assert_eq!(
+            device_type(&drive, Translator::new(crate::i18n::Language::Spanish)),
+            "USB"
+        );
         let sata = temp.path.join("pci0/block/sdb");
         write_attribute(&sata.join("queue/rotational"), "1\n");
-        assert_eq!(device_type(&sata), "HDD");
+        assert_eq!(
+            device_type(&sata, Translator::new(crate::i18n::Language::Spanish)),
+            "HDD"
+        );
         write_attribute(&sata.join("queue/rotational"), "0\n");
-        assert_eq!(device_type(&sata), "SSD");
+        assert_eq!(
+            device_type(&sata, Translator::new(crate::i18n::Language::Spanish)),
+            "SSD"
+        );
         let emmc = temp.path.join("mmc_host/mmc0/mmcblk0");
         write_attribute(&emmc.join("device/type"), "MMC\n");
-        assert_eq!(device_type(&emmc), "eMMC");
+        assert_eq!(
+            device_type(&emmc, Translator::new(crate::i18n::Language::Spanish)),
+            "eMMC"
+        );
     }
 }

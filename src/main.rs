@@ -3,6 +3,7 @@ mod config;
 mod desktop;
 mod graphics;
 mod history;
+mod i18n;
 mod icons;
 mod storage;
 mod system;
@@ -33,18 +34,18 @@ use crate::{
     app::App,
     config::{Config, ImageProtocol},
     history::History,
+    i18n::Translator,
     icons::Assets,
 };
 
 fn main() -> Result<()> {
+    let text = Translator::from_environment();
     let mut list = false;
     let mut no_images = false;
     for argument in env::args_os().skip(1) {
         match argument.to_str() {
             Some("--help" | "-h") => {
-                println!(
-                    "Lapi Launcher · aplicaciones Linux en tu terminal\n\nUso: lapi-launcher [opciones]\n\n  Configuración          Usuario: $XDG_CONFIG_HOME/lapi-launcher/config.toml (o ~/.config)\n                         Global: /etc/lapi-launcher/config.toml\n  --list                 Listar aplicaciones sin abrir la TUI\n  --no-images            Usar iniciales en lugar de imágenes\n  --print-default-config Imprimir configuración de ejemplo\n  --version              Mostrar versión\n  --help                 Mostrar esta ayuda"
-                );
+                println!("{}", text.command_help());
                 return Ok(());
             }
             Some("--version" | "-V") => {
@@ -55,19 +56,15 @@ fn main() -> Result<()> {
                 print!("{}", config::EXAMPLE);
                 return Ok(());
             }
-            Some("--config") => bail!(
-                "Lapi busca primero la configuración de usuario y después /etc/lapi-launcher/config.toml"
-            ),
+            Some("--config") => bail!(text.config_option_message()),
             Some("--list") => list = true,
             Some("--no-images") => no_images = true,
-            _ => bail!(
-                "Opción desconocida: {}. Usa --help",
-                argument.to_string_lossy()
-            ),
+            _ => bail!(text.unknown_option(&argument.to_string_lossy())),
         }
     }
     let mut config = Config::load_standard()?;
     config.images.enabled &= !no_images;
+    let text = Translator::new(config.interface.language);
     let catalog = desktop::discover(&config)?;
     if list {
         for application in &catalog.apps {
@@ -77,10 +74,10 @@ fn main() -> Result<()> {
     }
     ensure!(
         io::stdin().is_terminal() && io::stdout().is_terminal(),
-        "Ejecuta Lapi dentro de un terminal interactivo, o usa --list"
+        text.interactive_terminal_required()
     );
     let history_path = History::default_path()?;
-    let history = History::load(&history_path);
+    let history = History::load(&history_path, text);
     let warning = history.as_ref().err().map(|error| format!("{error:#}"));
     let mut app = App::new(config, catalog, history.unwrap_or_default(), history_path);
     if let Some(warning) = warning {
@@ -120,9 +117,9 @@ fn main() -> Result<()> {
         }
         picker.set_background_color(Some([24, 24, 37, 255]));
         Some(if legacy {
-            Assets::with_legacy(picker, app.config.images.icon_theme.clone(), true)
+            Assets::with_legacy(picker, app.config.images.icon_theme.clone(), true, app.text)
         } else {
-            Assets::new(picker, app.config.images.icon_theme.clone())
+            Assets::new(picker, app.config.images.icon_theme.clone(), app.text)
         })
     } else {
         None

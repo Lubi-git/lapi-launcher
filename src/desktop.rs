@@ -9,7 +9,10 @@ use std::{
 use anyhow::{Context, Result, bail, ensure};
 use freedesktop_desktop_entry::{DesktopEntry, Iter};
 
-use crate::config::{self, Config};
+use crate::{
+    config::{self, Config},
+    i18n::Language,
+};
 
 #[derive(Debug)]
 pub struct Application {
@@ -33,7 +36,7 @@ pub fn discover(config: &Config) -> Result<Catalog> {
             .into_iter()
             .map(|path| path.join("applications")),
     );
-    let locales = locales();
+    let locales = locales(config.interface.language);
     let desktops: Vec<String> = env::var("XDG_CURRENT_DESKTOP")
         .unwrap_or_default()
         .split(':')
@@ -449,7 +452,13 @@ fn tokenize(exec: &str) -> Result<Vec<String>> {
     Ok(arguments)
 }
 
-fn locales() -> Vec<String> {
+fn locales(language: Language) -> Vec<String> {
+    if language == Language::Spanish {
+        return vec!["es".into()];
+    }
+    if language == Language::English {
+        return vec!["en".into()];
+    }
     let mut locales: Vec<String> = env::var("LANGUAGE")
         .unwrap_or_default()
         .split(':')

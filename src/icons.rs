@@ -17,6 +17,7 @@ use ratatui_image::{Image, Resize, picker::Picker, protocol::Protocol};
 use crate::{
     config,
     graphics::{LegacyImage, Placements},
+    i18n::Translator,
 };
 
 enum Prepared {
@@ -57,11 +58,16 @@ pub struct Assets {
 }
 
 impl Assets {
-    pub fn new(picker: Picker, theme: Option<String>) -> Self {
-        Self::with_legacy(picker, theme, false)
+    pub fn new(picker: Picker, theme: Option<String>, text: Translator) -> Self {
+        Self::with_legacy(picker, theme, false, text)
     }
 
-    pub fn with_legacy(picker: Picker, theme: Option<String>, legacy: bool) -> Self {
+    pub fn with_legacy(
+        picker: Picker,
+        theme: Option<String>,
+        legacy: bool,
+        text: Translator,
+    ) -> Self {
         let (sender, requests) = mpsc::channel::<Request>();
         let (responses, receiver) = mpsc::channel();
         thread::spawn(move || {
@@ -93,7 +99,7 @@ impl Assets {
                 });
                 let error = if protocol.is_none() && matches!(request.source, Source::File(_)) {
                     match &request.source {
-                        Source::File(_) => Some("No se pudo cargar el logo configurado".into()),
+                        Source::File(_) => Some(text.configured_logo_unavailable().into()),
                         Source::Icon(_) => None,
                     }
                 } else {
