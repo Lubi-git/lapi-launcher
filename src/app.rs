@@ -60,6 +60,8 @@ pub enum Target {
     Section(Section),
     App(Section, usize),
     Search,
+    ContextAction,
+    ContextClose,
 }
 
 pub struct Hit {
@@ -90,6 +92,7 @@ pub struct App {
     pub content_viewport_height: u16,
     pub hits: Vec<Hit>,
     pub help: bool,
+    pub context_menu: Option<usize>,
     pub quit: bool,
     pub next_program: Option<LapiProgram>,
     pub status: String,
@@ -132,6 +135,7 @@ impl App {
             content_viewport_height: 0,
             hits: Vec::new(),
             help: false,
+            context_menu: None,
             quit: false,
             next_program: None,
             status,
@@ -220,6 +224,14 @@ impl App {
                 if self.help {
                     if matches!(key.code, KeyCode::Esc | KeyCode::F(1) | KeyCode::Enter) {
                         self.help = false;
+                    }
+                    return Ok(());
+                }
+                if self.context_menu.is_some() {
+                    match key.code {
+                        KeyCode::Esc => self.context_menu = None,
+                        KeyCode::Enter => self.toggle_desktop_pin(),
+                        _ => {}
                     }
                     return Ok(());
                 }
@@ -322,6 +334,13 @@ impl App {
                     .map(|hit| hit.target);
                 match mouse.kind {
                     MouseEventKind::Down(MouseButton::Left) => {
+                        if self.context_menu.is_some() {
+                            match target {
+                                Some(Target::ContextAction) => self.toggle_desktop_pin(),
+                                _ => self.context_menu = None,
+                            }
+                            return Ok(());
+                        }
                         match target {
                             Some(Target::System(index)) => self.toggle_system(index),
                             Some(Target::SystemDetails(index)) => self.system_focus = Some(index),
@@ -350,6 +369,15 @@ impl App {
                             _ => {}
                         }
                         if !matches!(target, Some(Target::App(_, _))) {
+                            self.last_click = None;
+                        }
+                    }
+                    MouseEventKind::Down(MouseButton::Right) => {
+                        if let Some(Target::App(section, position)) = target
+                            && let Some(index) = self.indices(section).get(position).copied()
+                            && self.apps[index].file.is_none()
+                        {
+                            self.context_menu = Some(index);
                             self.last_click = None;
                         }
                     }
@@ -472,6 +500,25 @@ impl App {
             }
             Err(_) => self.error(self.text.cannot_open(&self.apps[index].name)),
         }
+    }
+
+    fn toggle_desktop_pin(&mut self) {
+        let Some(index) = self.context_menu else {
+            return;
+        };
+        let name = self.apps[index].name.clone();
+        match desktop::set_desktop_pin(&self.apps[index], &self.config)
+            .and_then(|()| desktop::discover(&self.config))
+        {
+            Ok(catalog) => {
+                self.apps = catalog.apps;
+                self.filter();
+                self.status = self.text.desktop_updated(&name);
+                self.status_error = false;
+            }
+            Err(error) => self.error(format!("{error:#}")),
+        }
+        self.context_menu = None;
     }
 
     pub fn reap_children(&mut self) -> bool {

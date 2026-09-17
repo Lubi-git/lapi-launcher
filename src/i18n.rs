@@ -212,6 +212,35 @@ impl Translator {
         }
     }
 
+    pub const fn pin_to_desktop(self) -> &'static str {
+        if self.is_spanish() {
+            "Fijar en el escritorio"
+        } else {
+            "Pin to desktop"
+        }
+    }
+    pub const fn remove_from_desktop(self) -> &'static str {
+        if self.is_spanish() {
+            "Quitar del escritorio"
+        } else {
+            "Remove from desktop"
+        }
+    }
+    pub const fn context_hint(self) -> &'static str {
+        if self.is_spanish() {
+            "Enter / clic para confirmar · Esc para cerrar"
+        } else {
+            "Enter / click to confirm · Esc to close"
+        }
+    }
+    pub fn desktop_updated(self, name: &str) -> String {
+        if self.is_spanish() {
+            format!("Escritorio actualizado: {name}")
+        } else {
+            format!("Desktop updated: {name}")
+        }
+    }
+
     pub const fn help(self) -> [&'static str; 15] {
         match self.0 {
             Locale::Spanish => [

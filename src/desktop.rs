@@ -318,6 +318,24 @@ pub fn launch(app: &Application, config: &Config) -> Result<Child> {
         .with_context(|| format!("No se pudo abrir {}", app.name))
 }
 
+pub fn set_desktop_pin(app: &Application, config: &Config) -> Result<()> {
+    ensure!(app.file.is_none(), "Only application entries can be pinned");
+    if app.on_desktop {
+        return fs::remove_file(&app.entry.path).context("Could not remove the desktop entry");
+    }
+    let directory =
+        config::desktop_dir(config)?.context("Could not locate the desktop directory")?;
+    fs::create_dir_all(&directory).context("Could not create the desktop directory")?;
+    let filename = app
+        .entry
+        .path
+        .file_name()
+        .context("Invalid desktop entry path")?;
+    fs::copy(&app.entry.path, directory.join(filename))
+        .context("Could not pin the application to the desktop")?;
+    Ok(())
+}
+
 fn terminal_arguments(configured: &[String]) -> Result<Vec<String>> {
     if !configured.is_empty() {
         return Ok(configured.to_vec());

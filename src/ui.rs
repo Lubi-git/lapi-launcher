@@ -53,6 +53,68 @@ pub fn draw(frame: &mut Frame, app: &mut App, assets: &mut Option<Assets>) {
     if app.help {
         render_help(frame, screen, app.text);
     }
+    if let Some(index) = app.context_menu {
+        render_context_menu(frame, app, assets, screen, index);
+    }
+}
+
+fn render_context_menu(
+    frame: &mut Frame,
+    app: &mut App,
+    assets: &mut Option<Assets>,
+    screen: Rect,
+    index: usize,
+) {
+    let width = screen.width.saturating_sub(4).min(52);
+    let area = Rect::new(
+        screen.x + (screen.width - width) / 2,
+        screen.y + screen.height.saturating_sub(9) / 2,
+        width,
+        9,
+    );
+    let application = &app.apps[index];
+    frame.render_widget(Clear, area);
+    let block = Block::bordered()
+        .border_type(BorderType::Rounded)
+        .title(application.name.as_str())
+        .border_style(Style::new().fg(ACCENT))
+        .bg(SURFACE);
+    let inner = block.inner(area);
+    frame.render_widget(block, area);
+    let icon = Rect::new(inner.x + 1, inner.y + 1, 6, 3);
+    if let (Some(assets), Some(name)) = (assets.as_mut(), application.entry.icon()) {
+        assets.render(
+            frame,
+            format!("context:{}", application.id),
+            Source::Icon(name.into()),
+            icon,
+        );
+    }
+    let action = if application.on_desktop {
+        app.text.remove_from_desktop()
+    } else {
+        app.text.pin_to_desktop()
+    };
+    let action_area = Rect::new(inner.x + 9, inner.y + 1, inner.width.saturating_sub(10), 2);
+    frame.render_widget(
+        Paragraph::new(action)
+            .centered()
+            .fg(FOREGROUND)
+            .block(Block::bordered().border_style(Style::new().fg(ACCENT))),
+        action_area,
+    );
+    frame.render_widget(
+        Paragraph::new(app.text.context_hint()).centered().fg(MUTED),
+        Rect::new(inner.x, inner.y + 5, inner.width, 1),
+    );
+    app.hits.push(Hit {
+        area,
+        target: Target::ContextClose,
+    });
+    app.hits.push(Hit {
+        area: action_area,
+        target: Target::ContextAction,
+    });
 }
 
 fn draw_home(frame: &mut Frame, app: &mut App, assets: &mut Option<Assets>, area: Rect) {
