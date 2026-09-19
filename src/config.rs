@@ -23,8 +23,8 @@ pub struct Config {
     pub images: Images,
     pub launcher: Launcher,
     pub applications: Applications,
-    pub buttons: Buttons,
     pub interface: Interface,
+    pub theme: Theme,
 }
 
 #[derive(Debug, Default, Deserialize, Serialize)]
@@ -118,25 +118,189 @@ pub struct Applications {
     pub desktop_dir: Option<PathBuf>,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(default, deny_unknown_fields)]
-pub struct Buttons {
+pub struct Theme {
+    pub background: ThemeColor,
+    pub foreground: ThemeColor,
+    pub muted: RgbColor,
+    pub accent: RgbColor,
+    pub info: RgbColor,
+    pub border: RgbColor,
+    pub error: RgbColor,
+    pub selection: RgbColor,
+    pub header_background: RgbColor,
+    pub header_foreground: ThemeColor,
     pub launcher_background: RgbColor,
     pub installer_background: RgbColor,
     pub manager_background: RgbColor,
     pub launcher_foreground: RgbColor,
     pub installer_manager_foreground: RgbColor,
+    pub image_background: RgbColor,
+    pub border_style: BorderStyle,
 }
 
-impl Default for Buttons {
+impl Default for Theme {
     fn default() -> Self {
         Self {
+            background: ThemeColor::Terminal,
+            foreground: ThemeColor::Terminal,
+            muted: RgbColor::new(127, 132, 156),
+            accent: RgbColor::new(203, 166, 247),
+            info: RgbColor::new(137, 220, 235),
+            border: RgbColor::new(69, 71, 90),
+            error: RgbColor::new(243, 139, 168),
+            selection: RgbColor::new(203, 166, 247),
+            header_background: RgbColor::new(203, 166, 247),
+            header_foreground: ThemeColor::Terminal,
             launcher_background: RgbColor::new(166, 227, 161),
             installer_background: RgbColor::new(220, 38, 38),
             manager_background: RgbColor::new(220, 38, 38),
             launcher_foreground: RgbColor::new(0, 0, 0),
             installer_manager_foreground: RgbColor::new(255, 255, 255),
+            image_background: RgbColor::new(24, 24, 37),
+            border_style: BorderStyle::Rounded,
         }
+    }
+}
+
+pub const THEME_FIELD_COUNT: usize = 17;
+
+impl Theme {
+    pub const fn field_color(&self, index: usize) -> Option<RgbColor> {
+        match index {
+            0 => self.background.rgb(),
+            1 => self.foreground.rgb(),
+            2 => Some(self.muted),
+            3 => Some(self.accent),
+            4 => Some(self.info),
+            5 => Some(self.border),
+            6 => Some(self.error),
+            7 => Some(self.selection),
+            8 => Some(self.header_background),
+            9 => self.header_foreground.rgb(),
+            10 => Some(self.launcher_background),
+            11 => Some(self.launcher_foreground),
+            12 => Some(self.installer_background),
+            13 => Some(self.manager_background),
+            14 => Some(self.installer_manager_foreground),
+            15 => Some(self.image_background),
+            _ => None,
+        }
+    }
+
+    pub fn field_value(&self, index: usize) -> String {
+        match index {
+            0 => self.background.as_config_value(),
+            1 => self.foreground.as_config_value(),
+            2 => self.muted.as_hex(),
+            3 => self.accent.as_hex(),
+            4 => self.info.as_hex(),
+            5 => self.border.as_hex(),
+            6 => self.error.as_hex(),
+            7 => self.selection.as_hex(),
+            8 => self.header_background.as_hex(),
+            9 => self.header_foreground.as_config_value(),
+            10 => self.launcher_background.as_hex(),
+            11 => self.launcher_foreground.as_hex(),
+            12 => self.installer_background.as_hex(),
+            13 => self.manager_background.as_hex(),
+            14 => self.installer_manager_foreground.as_hex(),
+            15 => self.image_background.as_hex(),
+            16 => self.border_style.to_string().into(),
+            _ => String::new(),
+        }
+    }
+
+    pub fn set_field_value(
+        &mut self,
+        index: usize,
+        value: &str,
+    ) -> std::result::Result<(), String> {
+        match index {
+            0 => self.background = ThemeColor::parse(value)?,
+            1 => self.foreground = ThemeColor::parse(value)?,
+            2 => self.muted = RgbColor::parse(value)?,
+            3 => self.accent = RgbColor::parse(value)?,
+            4 => self.info = RgbColor::parse(value)?,
+            5 => self.border = RgbColor::parse(value)?,
+            6 => self.error = RgbColor::parse(value)?,
+            7 => self.selection = RgbColor::parse(value)?,
+            8 => self.header_background = RgbColor::parse(value)?,
+            9 => self.header_foreground = ThemeColor::parse(value)?,
+            10 => self.launcher_background = RgbColor::parse(value)?,
+            11 => self.launcher_foreground = RgbColor::parse(value)?,
+            12 => self.installer_background = RgbColor::parse(value)?,
+            13 => self.manager_background = RgbColor::parse(value)?,
+            14 => self.installer_manager_foreground = RgbColor::parse(value)?,
+            15 => self.image_background = RgbColor::parse(value)?,
+            16 => self.border_style = BorderStyle::parse(value)?,
+            _ => return Err("campo de tema inválido".into()),
+        }
+        Ok(())
+    }
+
+    pub fn cycle_field(&mut self, index: usize, direction: isize) {
+        match index {
+            0 => cycle_theme_color(&mut self.background, direction),
+            1 => cycle_theme_color(&mut self.foreground, direction),
+            2 => cycle_rgb_color(&mut self.muted, direction),
+            3 => cycle_rgb_color(&mut self.accent, direction),
+            4 => cycle_rgb_color(&mut self.info, direction),
+            5 => cycle_rgb_color(&mut self.border, direction),
+            6 => cycle_rgb_color(&mut self.error, direction),
+            7 => cycle_rgb_color(&mut self.selection, direction),
+            8 => cycle_rgb_color(&mut self.header_background, direction),
+            9 => cycle_theme_color(&mut self.header_foreground, direction),
+            10 => cycle_rgb_color(&mut self.launcher_background, direction),
+            11 => cycle_rgb_color(&mut self.launcher_foreground, direction),
+            12 => cycle_rgb_color(&mut self.installer_background, direction),
+            13 => cycle_rgb_color(&mut self.manager_background, direction),
+            14 => cycle_rgb_color(&mut self.installer_manager_foreground, direction),
+            15 => cycle_rgb_color(&mut self.image_background, direction),
+            16 => self.border_style = self.border_style.cycle(direction),
+            _ => {}
+        }
+    }
+}
+
+const THEME_PALETTE: [RgbColor; 12] = [
+    RgbColor::new(24, 24, 37),
+    RgbColor::new(69, 71, 90),
+    RgbColor::new(127, 132, 156),
+    RgbColor::new(203, 166, 247),
+    RgbColor::new(137, 220, 235),
+    RgbColor::new(166, 227, 161),
+    RgbColor::new(243, 139, 168),
+    RgbColor::new(249, 226, 175),
+    RgbColor::new(250, 179, 135),
+    RgbColor::new(137, 180, 250),
+    RgbColor::new(255, 255, 255),
+    RgbColor::new(0, 0, 0),
+];
+
+fn cycle_rgb_color(color: &mut RgbColor, direction: isize) {
+    let index = THEME_PALETTE
+        .iter()
+        .position(|candidate| candidate == color);
+    let next = match (index, direction.is_negative()) {
+        (Some(index), true) => (index + THEME_PALETTE.len() - 1) % THEME_PALETTE.len(),
+        (Some(index), false) => (index + 1) % THEME_PALETTE.len(),
+        (None, true) => THEME_PALETTE.len() - 1,
+        (None, false) => 0,
+    };
+    *color = THEME_PALETTE[next];
+}
+
+fn cycle_theme_color(color: &mut ThemeColor, direction: isize) {
+    if let ThemeColor::Rgb(value) = color {
+        cycle_rgb_color(value, direction);
+    } else {
+        *color = ThemeColor::Rgb(if direction.is_negative() {
+            *THEME_PALETTE.last().expect("theme palette is not empty")
+        } else {
+            THEME_PALETTE[0]
+        });
     }
 }
 
@@ -154,6 +318,10 @@ impl RgbColor {
 
     pub const fn components(self) -> (u8, u8, u8) {
         (self.red, self.green, self.blue)
+    }
+
+    pub fn as_hex(self) -> String {
+        format!("#{:02x}{:02x}{:02x}", self.red, self.green, self.blue)
     }
 
     fn parse(value: &str) -> std::result::Result<Self, String> {
@@ -176,10 +344,101 @@ impl Serialize for RgbColor {
     where
         S: serde::Serializer,
     {
-        serializer.serialize_str(&format!(
-            "#{:02x}{:02x}{:02x}",
-            self.red, self.green, self.blue
-        ))
+        serializer.serialize_str(&self.as_hex())
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ThemeColor {
+    Terminal,
+    Rgb(RgbColor),
+}
+
+impl ThemeColor {
+    pub const fn rgb(self) -> Option<RgbColor> {
+        match self {
+            Self::Terminal => None,
+            Self::Rgb(color) => Some(color),
+        }
+    }
+
+    fn parse(value: &str) -> std::result::Result<Self, String> {
+        if value.eq_ignore_ascii_case("terminal") {
+            Ok(Self::Terminal)
+        } else {
+            Ok(Self::Rgb(RgbColor::parse(value)?))
+        }
+    }
+
+    pub fn as_config_value(self) -> String {
+        self.rgb()
+            .map(RgbColor::as_hex)
+            .unwrap_or_else(|| "terminal".into())
+    }
+}
+
+impl Serialize for ThemeColor {
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_str(&self.as_config_value())
+    }
+}
+
+impl<'de> Deserialize<'de> for ThemeColor {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = String::deserialize(deserializer)?;
+        Self::parse(&value).map_err(D::Error::custom)
+    }
+}
+
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum BorderStyle {
+    Plain,
+    #[default]
+    Rounded,
+    Double,
+    Thick,
+}
+
+impl BorderStyle {
+    fn parse(value: &str) -> std::result::Result<Self, String> {
+        match value.to_ascii_lowercase().as_str() {
+            "plain" => Ok(Self::Plain),
+            "rounded" => Ok(Self::Rounded),
+            "double" => Ok(Self::Double),
+            "thick" => Ok(Self::Thick),
+            _ => Err("debe ser plain, rounded, double o thick".into()),
+        }
+    }
+
+    pub const fn cycle(self, direction: isize) -> Self {
+        let styles = [Self::Plain, Self::Rounded, Self::Double, Self::Thick];
+        let index = match self {
+            Self::Plain => 0,
+            Self::Rounded => 1,
+            Self::Double => 2,
+            Self::Thick => 3,
+        };
+        styles[if direction.is_negative() {
+            (index + styles.len() - 1) % styles.len()
+        } else {
+            (index + 1) % styles.len()
+        }]
+    }
+
+    pub const fn to_string(self) -> &'static str {
+        match self {
+            Self::Plain => "plain",
+            Self::Rounded => "rounded",
+            Self::Double => "double",
+            Self::Thick => "thick",
+        }
     }
 }
 
@@ -207,6 +466,7 @@ impl Config {
 
     pub fn load(path: &Path) -> Result<Self> {
         let mut value = config_value(path)?;
+        migrate_button_theme(&mut value);
         resolve_config_paths(&mut value, path)?;
         Self::from_value(value, &path.display().to_string(), config_directory(path)?)
     }
@@ -275,6 +535,8 @@ fn load_preferred_config(user: &Path, global: &Path, legacy: &Path) -> Result<Co
 fn load_layered_config(global: &Path, user: &Path) -> Result<Config> {
     let mut global_value = config_value(global)?;
     let mut user_value = config_value(user)?;
+    migrate_button_theme(&mut global_value);
+    migrate_button_theme(&mut user_value);
     resolve_config_paths(&mut global_value, global)?;
     resolve_config_paths(&mut user_value, user)?;
     merge_config_values(&mut global_value, user_value);
@@ -348,8 +610,30 @@ fn merge_config_values(base: &mut toml::Value, overlay: toml::Value) {
     }
 }
 
+fn migrate_button_theme(value: &mut toml::Value) {
+    let Some(config) = value.as_table_mut() else {
+        return;
+    };
+    let Some(buttons) = config
+        .remove("buttons")
+        .and_then(|value| value.as_table().cloned())
+    else {
+        return;
+    };
+    let theme = config
+        .entry("theme")
+        .or_insert_with(|| toml::Value::Table(toml::map::Map::new()));
+    let Some(theme) = theme.as_table_mut() else {
+        return;
+    };
+    for (name, color) in buttons {
+        theme.entry(name).or_insert(color);
+    }
+}
+
 impl Config {
-    fn from_value(value: toml::Value, source: &str, base: &Path) -> Result<Self> {
+    fn from_value(mut value: toml::Value, source: &str, base: &Path) -> Result<Self> {
+        migrate_button_theme(&mut value);
         let mut config: Self = value
             .try_into()
             .with_context(|| format!("Configuración inválida: {source}"))?;
@@ -384,6 +668,46 @@ impl Config {
 
 fn create_default_config(path: &Path) -> Result<()> {
     write_config_if_missing(path, EXAMPLE)?;
+    write_official_logo_if_missing(path)
+}
+
+pub fn save_user_theme(base: &Theme, theme: &Theme) -> Result<()> {
+    let path = user_config_path()?;
+    save_user_theme_to(&path, base, theme)
+}
+
+fn save_user_theme_to(path: &Path, base: &Theme, theme: &Theme) -> Result<()> {
+    let mut value = if path.exists() {
+        config_value(path)?
+    } else {
+        toml::Value::Table(toml::map::Map::new())
+    };
+    migrate_button_theme(&mut value);
+    let Some(config) = value.as_table_mut() else {
+        bail!("La configuración de usuario debe ser una tabla TOML")
+    };
+    let base = toml::Value::try_from(base).context("No se pudo preparar el tema base")?;
+    let changed = toml::Value::try_from(theme).context("No se pudo preparar el tema")?;
+    let Some(base) = base.as_table() else {
+        bail!("El tema base debe ser una tabla TOML")
+    };
+    let Some(changed) = changed.as_table() else {
+        bail!("El tema debe ser una tabla TOML")
+    };
+    let user_theme = config
+        .entry("theme")
+        .or_insert_with(|| toml::Value::Table(toml::map::Map::new()));
+    let Some(user_theme) = user_theme.as_table_mut() else {
+        bail!("El tema de usuario debe ser una tabla TOML")
+    };
+    for (name, color) in changed {
+        if base.get(name) != Some(color) {
+            user_theme.insert(name.clone(), color.clone());
+        }
+    }
+    let contents =
+        toml::to_string_pretty(&value).context("No se pudo preparar la configuración")?;
+    write_config(path, &contents)?;
     write_official_logo_if_missing(path)
 }
 
@@ -426,6 +750,30 @@ fn write_config_if_missing(path: &Path, contents: &str) -> Result<()> {
             )
         }),
     }
+}
+
+fn write_config(path: &Path, contents: &str) -> Result<()> {
+    let directory = config_directory(path)?;
+    fs::create_dir_all(directory)
+        .with_context(|| format!("No se pudo crear {}", directory.display()))?;
+    let temporary = directory.join(format!(".{CONFIG_FILE}.{}.tmp", std::process::id()));
+    let mut file = fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&temporary)
+        .with_context(|| format!("No se pudo crear {}", temporary.display()))?;
+    let result = (|| {
+        file.write_all(contents.as_bytes())
+            .with_context(|| format!("No se pudo escribir {}", temporary.display()))?;
+        file.sync_all()
+            .with_context(|| format!("No se pudo guardar {}", temporary.display()))?;
+        fs::rename(&temporary, path)
+            .with_context(|| format!("No se pudo actualizar {}", path.display()))
+    })();
+    if result.is_err() {
+        let _ = fs::remove_file(&temporary);
+    }
+    result
 }
 
 fn write_official_logo_if_missing(config_path: &Path) -> Result<()> {
@@ -584,7 +932,7 @@ mod tests {
         let config = load_preferred_config(&user, &global, &legacy).unwrap();
         assert_eq!(config.logo.width, 40);
         assert_eq!(config.logo.height, 10);
-        assert_eq!(config.buttons.manager_background.components(), (16, 32, 48));
+        assert_eq!(config.theme.manager_background.components(), (16, 32, 48));
     }
 
     #[test]
@@ -648,5 +996,47 @@ mod tests {
             Some(user_logo.clone())
         );
         assert_eq!(fs::read(user_logo).unwrap(), OFFICIAL_LOGO);
+    }
+
+    #[test]
+    fn theme_supports_terminal_colors_and_cycles_the_palette() {
+        let mut theme = Theme::default();
+        theme.set_field_value(0, "#102030").unwrap();
+        assert_eq!(theme.background.rgb().unwrap().components(), (16, 32, 48));
+        theme.set_field_value(0, "terminal").unwrap();
+        assert_eq!(theme.background, ThemeColor::Terminal);
+        theme.cycle_field(0, 1);
+        assert_ne!(theme.background, ThemeColor::Terminal);
+        theme.set_field_value(16, "double").unwrap();
+        assert_eq!(theme.border_style, BorderStyle::Double);
+    }
+
+    #[test]
+    fn saving_a_theme_preserves_unmodified_user_and_global_values() {
+        let temporary = crate::test_support::TempDir::new();
+        let path = temporary.path.join("user-config/config.toml");
+        fs::create_dir_all(path.parent().unwrap()).unwrap();
+        fs::write(&path, "[theme]\nmuted = '#102030'\n").unwrap();
+        let base = Theme::default();
+        let mut changed = base.clone();
+        changed.accent = RgbColor::new(1, 2, 3);
+
+        save_user_theme_to(&path, &base, &changed).unwrap();
+
+        let value = config_value(&path).unwrap();
+        let theme = value.get("theme").and_then(toml::Value::as_table).unwrap();
+        assert_eq!(
+            theme.get("muted").and_then(toml::Value::as_str),
+            Some("#102030")
+        );
+        assert_eq!(
+            theme.get("accent").and_then(toml::Value::as_str),
+            Some("#010203")
+        );
+        assert!(!theme.contains_key("background"));
+        assert_eq!(
+            fs::read(path.parent().unwrap().join(LOGO_FILE)).unwrap(),
+            OFFICIAL_LOGO
+        );
     }
 }

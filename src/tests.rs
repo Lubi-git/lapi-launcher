@@ -3,13 +3,15 @@ use std::{
     time::{Duration, Instant},
 };
 
-use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers};
+use crossterm::event::{
+    Event, KeyCode, KeyEvent, KeyModifiers, MouseButton, MouseEvent, MouseEventKind,
+};
 use ratatui::{Terminal, backend::TestBackend, layout::Rect};
 use ratatui_image::picker::Picker;
 
 use crate::{
     app::{LapiProgram, Section, Target},
-    config::Config,
+    config::{Config, ThemeColor},
     icons::{Assets, Source},
     test_support::{self, TempDir},
     ui,
@@ -260,6 +262,39 @@ fn system_expansion_pushes_groups_down_and_keeps_them_reachable() {
 }
 
 #[test]
+fn right_click_outside_an_application_opens_a_discardable_theme_editor() {
+    let temporary = TempDir::new();
+    let mut app = test_support::app(&["Firefox"], temporary.path.join("history.toml"));
+    let mut terminal = Terminal::new(TestBackend::new(100, 40)).unwrap();
+    terminal
+        .draw(|frame| ui::draw(frame, &mut app, &mut None))
+        .unwrap();
+
+    app.handle(Event::Mouse(MouseEvent {
+        kind: MouseEventKind::Down(MouseButton::Right),
+        column: 99,
+        row: 0,
+        modifiers: KeyModifiers::NONE,
+    }))
+    .unwrap();
+    assert!(app.theme_editor.is_some());
+    terminal
+        .draw(|frame| ui::draw(frame, &mut app, &mut None))
+        .unwrap();
+    assert!(
+        app.hits
+            .iter()
+            .any(|hit| matches!(hit.target, Target::ThemeField(0)))
+    );
+
+    app.handle(key(KeyCode::Right)).unwrap();
+    assert_ne!(app.theme().background, ThemeColor::Terminal);
+    app.handle(key(KeyCode::Esc)).unwrap();
+    assert!(app.theme_editor.is_none());
+    assert_eq!(app.config.theme.background, ThemeColor::Terminal);
+}
+
+#[test]
 fn config_resolves_relative_logo_paths_and_rejects_invalid_options() {
     let temporary = TempDir::new();
     let path = temporary.path.join("config.toml");
@@ -284,13 +319,13 @@ fn config_resolves_relative_logo_paths_and_rejects_invalid_options() {
         "[buttons]\nlauncher_background = '#102030'\ninstaller_background = '#405060'\nmanager_background = '#708090'\nlauncher_foreground = '#a0b0c0'\ninstaller_manager_foreground = '#d0e0f0'\n",
     )
     .unwrap();
-    let buttons = Config::load(&path).unwrap().buttons;
-    assert_eq!(buttons.launcher_background.components(), (16, 32, 48));
-    assert_eq!(buttons.installer_background.components(), (64, 80, 96));
-    assert_eq!(buttons.manager_background.components(), (112, 128, 144));
-    assert_eq!(buttons.launcher_foreground.components(), (160, 176, 192));
+    let theme = Config::load(&path).unwrap().theme;
+    assert_eq!(theme.launcher_background.components(), (16, 32, 48));
+    assert_eq!(theme.installer_background.components(), (64, 80, 96));
+    assert_eq!(theme.manager_background.components(), (112, 128, 144));
+    assert_eq!(theme.launcher_foreground.components(), (160, 176, 192));
     assert_eq!(
-        buttons.installer_manager_foreground.components(),
+        theme.installer_manager_foreground.components(),
         (208, 224, 240)
     );
     fs::write(&path, crate::config::EXAMPLE).unwrap();
@@ -307,6 +342,7 @@ fn image_worker_renders_a_png_and_reports_a_missing_logo() {
     let mut assets = Assets::new(
         Picker::halfblocks(),
         None,
+        [24, 24, 37, 255],
         crate::i18n::Translator::new(crate::i18n::Language::Spanish),
     );
     let mut terminal = Terminal::new(TestBackend::new(20, 10)).unwrap();

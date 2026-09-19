@@ -8,30 +8,88 @@ use ratatui::{
 
 use crate::{
     app::{App, Hit, LapiProgram, Section, Target},
-    config::{LogoSource, RgbColor},
+    config::{BorderStyle, LogoSource, RgbColor, THEME_FIELD_COUNT, Theme, ThemeColor},
     icons::{Assets, Source},
 };
 
-pub const BACKGROUND: Color = Color::Reset;
-const FOREGROUND: Color = Color::Reset;
-const MUTED: Color = Color::Rgb(127, 132, 156);
-const ACCENT: Color = Color::Rgb(203, 166, 247);
-const CYAN: Color = Color::Rgb(137, 220, 235);
-const BORDER: Color = Color::Rgb(69, 71, 90);
-const ERROR: Color = Color::Rgb(243, 139, 168);
+#[derive(Clone, Copy)]
+struct UiTheme {
+    background: Color,
+    foreground: Color,
+    muted: Color,
+    accent: Color,
+    info: Color,
+    border: Color,
+    error: Color,
+    selection: Color,
+    header_background: Color,
+    header_foreground: Color,
+    launcher_background: Color,
+    installer_background: Color,
+    manager_background: Color,
+    launcher_foreground: Color,
+    installer_manager_foreground: Color,
+    border_style: BorderStyle,
+}
+
+impl From<&Theme> for UiTheme {
+    fn from(theme: &Theme) -> Self {
+        Self {
+            background: terminal_color(theme.background),
+            foreground: terminal_color(theme.foreground),
+            muted: rgb_color(theme.muted),
+            accent: rgb_color(theme.accent),
+            info: rgb_color(theme.info),
+            border: rgb_color(theme.border),
+            error: rgb_color(theme.error),
+            selection: rgb_color(theme.selection),
+            header_background: rgb_color(theme.header_background),
+            header_foreground: terminal_color(theme.header_foreground),
+            launcher_background: rgb_color(theme.launcher_background),
+            installer_background: rgb_color(theme.installer_background),
+            manager_background: rgb_color(theme.manager_background),
+            launcher_foreground: rgb_color(theme.launcher_foreground),
+            installer_manager_foreground: rgb_color(theme.installer_manager_foreground),
+            border_style: theme.border_style,
+        }
+    }
+}
+
+fn rgb_color(color: RgbColor) -> Color {
+    let (red, green, blue) = color.components();
+    Color::Rgb(red, green, blue)
+}
+
+fn terminal_color(color: ThemeColor) -> Color {
+    color.rgb().map(rgb_color).unwrap_or(Color::Reset)
+}
+
+fn border_type(style: BorderStyle) -> BorderType {
+    match style {
+        BorderStyle::Plain => BorderType::Plain,
+        BorderStyle::Rounded => BorderType::Rounded,
+        BorderStyle::Double => BorderType::Double,
+        BorderStyle::Thick => BorderType::Thick,
+    }
+}
+
 const SEARCH_HEIGHT: u16 = 4;
 const GRID_HEIGHT: u16 = 8;
 const GROUP_GAP: u16 = 1;
 
 pub fn draw(frame: &mut Frame, app: &mut App, assets: &mut Option<Assets>) {
     let screen = frame.area();
-    frame.render_widget(Block::new().fg(FOREGROUND), screen);
+    let colors = UiTheme::from(app.theme());
+    frame.render_widget(
+        Block::new().fg(colors.foreground).bg(colors.background),
+        screen,
+    );
     app.hits.clear();
     app.system_rows = [0; 3];
     if screen.width < 40 || screen.height < 20 {
         frame.render_widget(
             Paragraph::new(app.text.compact_terminal())
-                .fg(ACCENT)
+                .fg(colors.accent)
                 .wrap(Wrap { trim: true }),
             screen,
         );
@@ -50,10 +108,13 @@ pub fn draw(frame: &mut Frame, app: &mut App, assets: &mut Option<Assets>) {
         draw_home(frame, app, assets, area);
     }
     if app.help {
-        render_help(frame, screen, app.text);
+        render_help(frame, screen, app);
     }
     if let Some(index) = app.context_menu {
         render_context_menu(frame, app, assets, screen, index);
+    }
+    if app.theme_editor.is_some() {
+        render_theme_editor(frame, app, screen);
     }
 }
 
@@ -64,6 +125,7 @@ fn render_context_menu(
     screen: Rect,
     index: usize,
 ) {
+    let colors = UiTheme::from(app.theme());
     let width = screen.width.saturating_sub(4).min(56);
     let area = Rect::new(
         screen.x + (screen.width - width) / 2,
@@ -74,9 +136,10 @@ fn render_context_menu(
     let application = &app.apps[index];
     frame.render_widget(Clear, area);
     let block = Block::bordered()
-        .border_type(BorderType::Rounded)
+        .border_type(border_type(colors.border_style))
         .title(app.text.application_actions())
-        .border_style(Style::new().fg(ACCENT));
+        .style(Style::new().bg(colors.background).fg(colors.foreground))
+        .border_style(Style::new().fg(colors.accent));
     let inner = block.inner(area);
     frame.render_widget(block, area);
     let icon = Rect::new(inner.x + 2, inner.y + 1, 7, 4);
@@ -90,7 +153,7 @@ fn render_context_menu(
     }
     frame.render_widget(
         Paragraph::new(application.name.as_str())
-            .fg(ACCENT)
+            .fg(colors.selection)
             .bold()
             .wrap(Wrap { trim: true }),
         Rect::new(inner.x + 11, inner.y + 1, inner.width.saturating_sub(13), 2),
@@ -104,13 +167,15 @@ fn render_context_menu(
     frame.render_widget(
         Paragraph::new(action).centered().style(
             Style::new()
-                .fg(ACCENT)
+                .fg(colors.selection)
                 .add_modifier(Modifier::REVERSED | Modifier::BOLD),
         ),
         action_area,
     );
     frame.render_widget(
-        Paragraph::new(app.text.context_hint()).centered().fg(MUTED),
+        Paragraph::new(app.text.context_hint())
+            .centered()
+            .fg(colors.muted),
         Rect::new(inner.x + 1, inner.y + 7, inner.width.saturating_sub(2), 1),
     );
     app.hits.push(Hit {
@@ -132,7 +197,7 @@ fn draw_home(frame: &mut Frame, app: &mut App, assets: &mut Option<Assets>, area
     let mut document_y = 0;
 
     if let Some(header) = document_area(viewport, scroll, document_y, 2) {
-        render_header(frame, app.text, header);
+        render_header(frame, app, header);
     }
     document_y += 2;
     if let Some(logo) = document_area(viewport, scroll, document_y, app.config.logo.height) {
@@ -172,7 +237,7 @@ fn draw_search(frame: &mut Frame, app: &mut App, assets: &mut Option<Assets>, ar
         Constraint::Length(2),
     ])
     .areas(area);
-    render_header(frame, app.text, header);
+    render_header(frame, app, header);
     render_logo(frame, app, assets, logo);
     render_system_compact(frame, app, system);
     render_lapi_buttons(frame, app, tools);
@@ -181,17 +246,25 @@ fn draw_search(frame: &mut Frame, app: &mut App, assets: &mut Option<Assets>, ar
     render_footer(frame, app, footer, false);
 }
 
-fn render_header(frame: &mut Frame, text: crate::i18n::Translator, area: Rect) {
+fn render_header(frame: &mut Frame, app: &App, area: Rect) {
+    let colors = UiTheme::from(app.theme());
     frame.render_widget(
         Paragraph::new(Line::from(vec![
-            Span::styled(" LAPI ", Style::new().bg(ACCENT).fg(BACKGROUND).bold()),
-            Span::styled(text.tagline(), Style::new().fg(MUTED)),
+            Span::styled(
+                " LAPI ",
+                Style::new()
+                    .bg(colors.header_background)
+                    .fg(colors.header_foreground)
+                    .bold(),
+            ),
+            Span::styled(app.text.tagline(), Style::new().fg(colors.muted)),
         ])),
         area,
     );
 }
 
 fn render_footer(frame: &mut Frame, app: &App, area: Rect, scrollable: bool) {
+    let colors = UiTheme::from(app.theme());
     let [keys, status] =
         Layout::vertical([Constraint::Length(1), Constraint::Length(1)]).areas(area);
     frame.render_widget(
@@ -202,11 +275,15 @@ fn render_footer(frame: &mut Frame, app: &App, area: Rect, scrollable: bool) {
         } else {
             app.text.footer_default()
         })
-        .fg(MUTED),
+        .fg(colors.muted),
         keys,
     );
     frame.render_widget(
-        Paragraph::new(app.status.as_str()).fg(if app.status_error { ERROR } else { CYAN }),
+        Paragraph::new(app.status.as_str()).fg(if app.status_error {
+            colors.error
+        } else {
+            colors.info
+        }),
         status,
     );
 }
@@ -248,33 +325,33 @@ fn document_area(viewport: Rect, scroll: u16, document_y: u16, height: u16) -> O
 }
 
 fn render_lapi_buttons(frame: &mut Frame, app: &mut App, area: Rect) {
+    let colors = UiTheme::from(app.theme());
     let [launcher, installer, manager] = Layout::horizontal([
         Constraint::Percentage(33),
         Constraint::Percentage(34),
         Constraint::Percentage(33),
     ])
     .areas(area);
-    let colors = &app.config.buttons;
     for (button, label, background, foreground, target) in [
         (
             launcher,
             app.text.launcher_button(),
-            terminal_color(colors.launcher_background),
-            terminal_color(colors.launcher_foreground),
+            colors.launcher_background,
+            colors.launcher_foreground,
             None,
         ),
         (
             installer,
             app.text.installer_button(),
-            terminal_color(colors.installer_background),
-            terminal_color(colors.installer_manager_foreground),
+            colors.installer_background,
+            colors.installer_manager_foreground,
             Some(LapiProgram::Installer),
         ),
         (
             manager,
             app.text.manager_button(),
-            terminal_color(colors.manager_background),
-            terminal_color(colors.installer_manager_foreground),
+            colors.manager_background,
+            colors.installer_manager_foreground,
             Some(LapiProgram::Manager),
         ),
     ] {
@@ -295,14 +372,16 @@ fn render_lapi_buttons(frame: &mut Frame, app: &mut App, area: Rect) {
     }
 }
 
-fn terminal_color(color: RgbColor) -> Color {
-    let (red, green, blue) = color.components();
-    Color::Rgb(red, green, blue)
-}
-
 fn render_logo(frame: &mut Frame, app: &App, assets: &mut Option<Assets>, area: Rect) {
+    let colors = UiTheme::from(app.theme());
     if area.height <= 1 {
-        frame.render_widget(Paragraph::new("l a p i").centered().fg(ACCENT).bold(), area);
+        frame.render_widget(
+            Paragraph::new("l a p i")
+                .centered()
+                .fg(colors.accent)
+                .bold(),
+            area,
+        );
         return;
     }
     let width = app.config.logo.width.min(area.width);
@@ -345,7 +424,10 @@ fn render_logo(frame: &mut Frame, app: &App, assets: &mut Option<Assets>, area: 
         inner.width,
         height.min(inner.height),
     );
-    frame.render_widget(Paragraph::new(wordmark).centered().fg(ACCENT), text_area);
+    frame.render_widget(
+        Paragraph::new(wordmark).centered().fg(colors.accent),
+        text_area,
+    );
 }
 
 fn render_system_document(
@@ -355,9 +437,10 @@ fn render_system_document(
     scroll: u16,
     mut document_y: u16,
 ) -> u16 {
+    let colors = UiTheme::from(app.theme());
     if let Some(title) = document_area(viewport, scroll, document_y, 1) {
         frame.render_widget(
-            Paragraph::new(app.text.system_information()).fg(MUTED),
+            Paragraph::new(app.text.system_information()).fg(colors.muted),
             title,
         );
     }
@@ -377,14 +460,14 @@ fn render_system_document(
             let indicator = if app.expanded[index] { "▾" } else { "▸" };
             frame.render_widget(
                 Paragraph::new(Line::from(vec![
-                    Span::styled(format!("{branch} "), Style::new().fg(BORDER)),
+                    Span::styled(format!("{branch} "), Style::new().fg(colors.border)),
                     Span::styled(
                         format!("{indicator} {} ", section.label),
-                        Style::new().fg(CYAN),
+                        Style::new().fg(colors.info),
                     ),
                     Span::styled(
                         format!("› {}", section.summary),
-                        Style::new().fg(FOREGROUND),
+                        Style::new().fg(colors.foreground),
                     ),
                 ])),
                 header,
@@ -399,7 +482,7 @@ fn render_system_document(
             for (label, value) in &section.details {
                 if let Some(detail) = document_area(viewport, scroll, document_y, 1) {
                     frame.render_widget(
-                        Paragraph::new(format!("│    {label}: {value}")).fg(MUTED),
+                        Paragraph::new(format!("│    {label}: {value}")).fg(colors.muted),
                         detail,
                     );
                     app.hits.push(Hit {
@@ -415,6 +498,7 @@ fn render_system_document(
 }
 
 fn render_system_compact(frame: &mut Frame, app: &mut App, area: Rect) {
+    let colors = UiTheme::from(app.theme());
     if area.height < 4 {
         return;
     }
@@ -452,7 +536,7 @@ fn render_system_compact(frame: &mut Frame, app: &mut App, area: Rect) {
         } else {
             app.text.system_information()
         })
-        .fg(MUTED),
+        .fg(colors.muted),
         Rect::new(area.x, area.y, area.width, 1),
     );
     let mut row = area.y + 1;
@@ -485,9 +569,9 @@ fn render_system_compact(frame: &mut Frame, app: &mut App, area: Rect) {
                 Paragraph::new(position)
                     .right_aligned()
                     .fg(if app.system_focus == Some(index) {
-                        ACCENT
+                        colors.selection
                     } else {
-                        MUTED
+                        colors.muted
                     }),
                 position_area,
             );
@@ -496,14 +580,14 @@ fn render_system_compact(frame: &mut Frame, app: &mut App, area: Rect) {
         let indicator = if app.expanded[index] { "▾" } else { "▸" };
         frame.render_widget(
             Paragraph::new(Line::from(vec![
-                Span::styled(format!("{branch} "), Style::new().fg(BORDER)),
+                Span::styled(format!("{branch} "), Style::new().fg(colors.border)),
                 Span::styled(
                     format!("{indicator} {} ", section.label),
-                    Style::new().fg(CYAN),
+                    Style::new().fg(colors.info),
                 ),
                 Span::styled(
                     format!("› {}", section.summary),
-                    Style::new().fg(FOREGROUND),
+                    Style::new().fg(colors.foreground),
                 ),
             ])),
             title_area,
@@ -522,7 +606,7 @@ fn render_system_compact(frame: &mut Frame, app: &mut App, area: Rect) {
             }
             for (label, value) in section.details.iter().skip(offset).take(capacity) {
                 frame.render_widget(
-                    Paragraph::new(format!("│    {label}: {value}")).fg(MUTED),
+                    Paragraph::new(format!("│    {label}: {value}")).fg(colors.muted),
                     Rect::new(area.x, row, area.width, 1),
                 );
                 row += 1;
@@ -532,22 +616,23 @@ fn render_system_compact(frame: &mut Frame, app: &mut App, area: Rect) {
 }
 
 fn render_search(frame: &mut Frame, app: &mut App, area: Rect) {
+    let colors = UiTheme::from(app.theme());
     let area = Rect::new(area.x, area.y, area.width, area.height.min(3));
     let block = Block::bordered()
-        .border_type(BorderType::Rounded)
-        .border_style(Style::new().fg(ACCENT))
+        .border_type(border_type(colors.border_style))
+        .border_style(Style::new().fg(colors.accent))
         .title(Line::from(vec![
-            Span::styled(app.text.search(), Style::new().fg(ACCENT)),
+            Span::styled(app.text.search(), Style::new().fg(colors.accent)),
             Span::styled(
                 format!("{} / {} ", app.filtered.len(), app.apps.len()),
-                Style::new().fg(MUTED),
+                Style::new().fg(colors.muted),
             ),
         ]));
     let inner = block.inner(area);
     let line = if app.query.is_empty() {
         Line::from(Span::styled(
             app.text.search_placeholder(),
-            Style::new().fg(MUTED),
+            Style::new().fg(colors.muted),
         ))
     } else {
         Line::from(format!(" {}", app.query))
@@ -570,6 +655,7 @@ fn render_grid(
     section: Section,
     area: Rect,
 ) {
+    let colors = UiTheme::from(app.theme());
     if area.is_empty() {
         return;
     }
@@ -581,14 +667,21 @@ fn render_grid(
     };
     let indices = app.indices(section).to_vec();
     let title = Line::from(vec![
-        Span::styled(if active { "▸ " } else { "  " }, Style::new().fg(ACCENT)),
+        Span::styled(
+            if active { "▸ " } else { "  " },
+            Style::new().fg(colors.selection),
+        ),
         Span::styled(
             format!("{label} "),
             Style::new()
-                .fg(if active { ACCENT } else { FOREGROUND })
+                .fg(if active {
+                    colors.selection
+                } else {
+                    colors.foreground
+                })
                 .bold(),
         ),
-        Span::styled(format!("{}", indices.len()), Style::new().fg(MUTED)),
+        Span::styled(format!("{}", indices.len()), Style::new().fg(colors.muted)),
     ]);
     let header = Rect::new(area.x, area.y, area.width, 1);
     app.hits.push(Hit {
@@ -614,7 +707,9 @@ fn render_grid(
             app.text.no_desktop()
         };
         frame.render_widget(
-            Paragraph::new(text).fg(MUTED).wrap(Wrap { trim: false }),
+            Paragraph::new(text)
+                .fg(colors.muted)
+                .wrap(Wrap { trim: false }),
             body,
         );
         return;
@@ -652,7 +747,10 @@ fn render_grid(
             .min(usize::from(header.width)) as u16;
         let page_area = Rect::new(header.right() - width, header.y, width, 1);
         title_area.width = title_area.width.saturating_sub(width);
-        frame.render_widget(Paragraph::new(page).right_aligned().fg(MUTED), page_area);
+        frame.render_widget(
+            Paragraph::new(page).right_aligned().fg(colors.muted),
+            page_area,
+        );
     }
     frame.render_widget(Paragraph::new(title), title_area);
     for (position, app_index) in indices.iter().enumerate().skip(start).take(rows * columns) {
@@ -665,15 +763,23 @@ fn render_grid(
         );
         let selected = active && position == app.selected[section_index];
         let application = &app.apps[*app_index];
-        let color = if selected { ACCENT } else { BORDER };
+        let color = if selected {
+            colors.selection
+        } else {
+            colors.border
+        };
         if compact {
             let text = vec![Line::from(Span::styled(
                 format!("{} {}", if selected { "▸" } else { " " }, application.name),
                 Style::new()
-                    .fg(if selected { ACCENT } else { FOREGROUND })
+                    .fg(if selected {
+                        colors.selection
+                    } else {
+                        colors.foreground
+                    })
                     .bold(),
             ))];
-            frame.render_widget(Paragraph::new(text).bg(BACKGROUND), tile);
+            frame.render_widget(Paragraph::new(text).bg(colors.background), tile);
         } else {
             let icon_width = tile.width.min(12);
             let icon_box = Rect::new(
@@ -683,7 +789,7 @@ fn render_grid(
                 5,
             );
             let border = Block::bordered()
-                .border_type(BorderType::Rounded)
+                .border_type(border_type(colors.border_style))
                 .border_style(Style::new().fg(color));
             let image_area = border.inner(icon_box);
             frame.render_widget(border, icon_box);
@@ -715,7 +821,11 @@ fn render_grid(
                 frame.render_widget(
                     Paragraph::new(initials)
                         .centered()
-                        .fg(if selected { ACCENT } else { CYAN })
+                        .fg(if selected {
+                            colors.selection
+                        } else {
+                            colors.info
+                        })
                         .bold(),
                     initials_area,
                 );
@@ -723,7 +833,11 @@ fn render_grid(
             frame.render_widget(
                 Paragraph::new(application.name.as_str())
                     .centered()
-                    .fg(if selected { ACCENT } else { FOREGROUND })
+                    .fg(if selected {
+                        colors.selection
+                    } else {
+                        colors.foreground
+                    })
                     .add_modifier(Modifier::BOLD),
                 Rect::new(tile.x, tile.y + 5, tile.width, 1),
             );
@@ -736,11 +850,15 @@ fn render_grid(
 }
 
 fn render_results(frame: &mut Frame, app: &mut App, assets: &mut Option<Assets>, area: Rect) {
+    let colors = UiTheme::from(app.theme());
     if area.is_empty() {
         return;
     }
     if app.filtered.is_empty() {
-        frame.render_widget(Paragraph::new(app.text.no_matches_back()).fg(MUTED), area);
+        frame.render_widget(
+            Paragraph::new(app.text.no_matches_back()).fg(colors.muted),
+            area,
+        );
         return;
     }
     let section = Section::Results.index();
@@ -766,10 +884,14 @@ fn render_results(frame: &mut Frame, app: &mut App, assets: &mut Option<Assets>,
         );
         let application = &app.apps[*index];
         let selected = position == selected;
-        let color = if selected { ACCENT } else { FOREGROUND };
+        let color = if selected {
+            colors.selection
+        } else {
+            colors.foreground
+        };
         let icon_area = Rect::new(row.x + 3, row.y, 6, row.height);
         frame.render_widget(
-            Paragraph::new(if selected { "▸" } else { " " }).fg(ACCENT),
+            Paragraph::new(if selected { "▸" } else { " " }).fg(colors.selection),
             Rect::new(row.x, row.y + row.height / 2, 1, 1),
         );
         let rendered =
@@ -792,7 +914,7 @@ fn render_results(frame: &mut Frame, app: &mut App, assets: &mut Option<Assets>,
                 .flat_map(char::to_uppercase)
                 .collect();
             frame.render_widget(
-                Paragraph::new(initials).centered().fg(CYAN),
+                Paragraph::new(initials).centered().fg(colors.info),
                 Rect::new(
                     icon_area.x,
                     icon_area.y + icon_area.height / 2,
@@ -817,7 +939,166 @@ fn render_results(frame: &mut Frame, app: &mut App, assets: &mut Option<Assets>,
     }
 }
 
-fn render_help(frame: &mut Frame, screen: Rect, text: crate::i18n::Translator) {
+fn render_theme_editor(frame: &mut Frame, app: &mut App, screen: Rect) {
+    let colors = UiTheme::from(app.theme());
+    let width = screen.width.saturating_sub(4).min(76);
+    let height = screen.height.saturating_sub(2).min(20);
+    let area = Rect::new(
+        screen.x + (screen.width - width) / 2,
+        screen.y + (screen.height - height) / 2,
+        width,
+        height,
+    );
+    frame.render_widget(Clear, area);
+    let block = Block::bordered()
+        .border_type(border_type(colors.border_style))
+        .title(app.text.theme_title())
+        .style(Style::new().bg(colors.background).fg(colors.foreground))
+        .border_style(Style::new().fg(colors.accent));
+    let inner = block.inner(area);
+    frame.render_widget(block, area);
+    app.hits.push(Hit {
+        area,
+        target: Target::ThemeClose,
+    });
+    if inner.height < 4 || inner.width < 28 {
+        return;
+    }
+
+    let row_count = usize::from(inner.height.saturating_sub(3));
+    let editor = app.theme_editor.as_mut().expect("theme editor is open");
+    if editor.selected < editor.offset {
+        editor.offset = editor.selected;
+    }
+    if editor.selected >= editor.offset + row_count {
+        editor.offset = editor.selected + 1 - row_count;
+    }
+    let label_width = inner.width.saturating_sub(22).clamp(12, 34);
+    let controls_x = inner.x + label_width;
+    let value_width = inner.right().saturating_sub(controls_x + 4).max(8);
+    for index in editor.offset..(editor.offset + row_count).min(THEME_FIELD_COUNT) {
+        let row = Rect::new(
+            inner.x,
+            inner.y + (index - editor.offset) as u16,
+            inner.width,
+            1,
+        );
+        let selected = index == editor.selected;
+        let indicator = if selected { "›" } else { " " };
+        let label = format!(
+            "{indicator} {:<width$}",
+            app.text.theme_field(index),
+            width = usize::from(label_width.saturating_sub(2))
+        );
+        frame.render_widget(
+            Paragraph::new(label).fg(if selected {
+                colors.selection
+            } else {
+                colors.foreground
+            }),
+            Rect::new(inner.x, row.y, label_width, 1),
+        );
+
+        let value = if selected && editor.editing {
+            editor.input.clone()
+        } else {
+            editor.draft.field_value(index)
+        };
+        let preview = editor.draft.field_color(index).map(rgb_color);
+        let previous = Rect::new(controls_x, row.y, 2, 1);
+        let value_area = Rect::new(controls_x + 2, row.y, value_width, 1);
+        let next = Rect::new(value_area.right(), row.y, 2, 1);
+        frame.render_widget(Paragraph::new("‹").centered().fg(colors.muted), previous);
+        frame.render_widget(
+            Paragraph::new(Line::from(vec![
+                Span::styled(
+                    "■ ",
+                    Style::new().fg(preview.unwrap_or(colors.muted)).bold(),
+                ),
+                Span::styled(
+                    format!(
+                        "{value:<width$}",
+                        width = usize::from(value_width.saturating_sub(2))
+                    ),
+                    Style::new().fg(if selected {
+                        colors.selection
+                    } else {
+                        colors.foreground
+                    }),
+                ),
+            ]))
+            .style(if selected {
+                Style::new().add_modifier(Modifier::REVERSED)
+            } else {
+                Style::new()
+            }),
+            value_area,
+        );
+        frame.render_widget(Paragraph::new("›").centered().fg(colors.muted), next);
+        app.hits.push(Hit {
+            area: row,
+            target: Target::ThemeField(index),
+        });
+        app.hits.push(Hit {
+            area: previous,
+            target: Target::ThemePrevious(index),
+        });
+        app.hits.push(Hit {
+            area: next,
+            target: Target::ThemeNext(index),
+        });
+    }
+    let hint_area = Rect::new(inner.x, inner.bottom() - 2, inner.width, 1);
+    let hint = editor.message.as_deref().unwrap_or_else(|| {
+        if editor.editing {
+            app.text.theme_edit_hint()
+        } else {
+            app.text.theme_hint()
+        }
+    });
+    frame.render_widget(
+        Paragraph::new(hint)
+            .centered()
+            .fg(if editor.message.is_some() {
+                colors.error
+            } else {
+                colors.muted
+            })
+            .wrap(Wrap { trim: true }),
+        hint_area,
+    );
+    let [defaults, save] =
+        Layout::horizontal([Constraint::Percentage(50), Constraint::Percentage(50)])
+            .areas(Rect::new(inner.x, inner.bottom() - 1, inner.width, 1));
+    frame.render_widget(
+        Paragraph::new(app.text.theme_defaults()).centered().style(
+            Style::new()
+                .fg(colors.foreground)
+                .add_modifier(Modifier::REVERSED),
+        ),
+        defaults,
+    );
+    frame.render_widget(
+        Paragraph::new(app.text.theme_save()).centered().style(
+            Style::new()
+                .fg(colors.header_foreground)
+                .bg(colors.header_background)
+                .bold(),
+        ),
+        save,
+    );
+    app.hits.push(Hit {
+        area: defaults,
+        target: Target::ThemeDefaults,
+    });
+    app.hits.push(Hit {
+        area: save,
+        target: Target::ThemeSave,
+    });
+}
+
+fn render_help(frame: &mut Frame, screen: Rect, app: &App) {
+    let colors = UiTheme::from(app.theme());
     let width = screen.width.saturating_sub(4).min(70);
     let height = screen.height.saturating_sub(2).min(17);
     let area = Rect::new(
@@ -828,16 +1109,17 @@ fn render_help(frame: &mut Frame, screen: Rect, text: crate::i18n::Translator) {
     );
     frame.render_widget(Clear, area);
     let block = Block::bordered()
-        .border_type(BorderType::Rounded)
+        .border_type(border_type(colors.border_style))
         .borders(Borders::ALL)
-        .title(text.help_title())
-        .border_style(Style::new().fg(ACCENT));
+        .title(app.text.help_title())
+        .style(Style::new().bg(colors.background).fg(colors.foreground))
+        .border_style(Style::new().fg(colors.accent));
     let inner = block.inner(area).inner(Margin::new(1, 0));
     frame.render_widget(block, area);
-    let text = text.help().join("\n");
+    let text = app.text.help().join("\n");
     frame.render_widget(
         Paragraph::new(text)
-            .fg(FOREGROUND)
+            .fg(colors.foreground)
             .wrap(Wrap { trim: false }),
         inner,
     );

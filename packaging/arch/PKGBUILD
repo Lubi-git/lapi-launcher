@@ -1,6 +1,6 @@
 pkgname=lapi-launcher
 pkgver=1.0.0
-pkgrel=1
+pkgrel=2
 pkgdesc='A terminal application launcher for Linux'
 url='https://github.com/Lubi-git/lapi-launcher'
 arch=('x86_64')
@@ -16,8 +16,8 @@ source_x86_64=(
     "LICENSE::https://raw.githubusercontent.com/Lubi-git/lapi-launcher/v${pkgver}/LICENSE"
 )
 sha256sums_x86_64=(
-    '19d4c13345ddd0cb0f34ef00c2830b13ffb9a77834c556e64653b1974eb94095'
-    'd9fe2e51967ff7ebb148a2704d3b1e3b009d6b5271835de6139e106a01f9739a'
+    '58bb3e89ae9802358a0074bc24ff0d034e9627c20072cfd23958b5cd92e10c30'
+    '6a541c976b9b2e44f2882bdc8020f67d2193bf3a8df1e052c586cec575a64b1f'
     '32e30e5f661efbf4b97ba89715789aa5bf8549843b7abdc6b6f0dc2bd20ec50e'
     '92e9f4e437d1931b234809168eba6280fb15bd292202eb8f70c0e4b458fae1bb'
     '725356961fa16dd19ee5b018258d50e4848b75eccaa556fdf567f169cf496ea1'

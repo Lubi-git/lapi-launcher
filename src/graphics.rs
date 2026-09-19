@@ -22,10 +22,15 @@ pub struct LegacyImage {
 }
 
 impl LegacyImage {
-    pub fn new(image: &DynamicImage, size: Size, font: FontSize) -> Result<Self> {
+    pub fn new(
+        image: &DynamicImage,
+        size: Size,
+        font: FontSize,
+        background: [u8; 4],
+    ) -> Result<Self> {
         let resize = Resize::Scale(Some(FilterType::Lanczos3));
         let size = resize.size_for(image, font, size);
-        let image = resize.resize(image, font, size, Some(image::Rgba([24, 24, 37, 255])));
+        let image = resize.resize(image, font, size, Some(image::Rgba(background)));
         let mut png = Cursor::new(Vec::new());
         image.write_to(&mut png, ImageFormat::Png)?;
         let encoded = base64(png.get_ref());
@@ -161,6 +166,7 @@ mod tests {
             &DynamicImage::new_rgb8(512, 512),
             Size::new(10, 3),
             FontSize::new(10, 20),
+            [24, 24, 37, 255],
         )
         .unwrap();
         assert_eq!(image.size, Size::new(6, 3));
@@ -172,6 +178,7 @@ mod tests {
             &DynamicImage::new_rgb8(64, 64),
             Size::new(6, 3),
             FontSize::new(10, 20),
+            [24, 24, 37, 255],
         )
         .unwrap();
         let mut placements = Placements::default();
@@ -206,6 +213,7 @@ mod tests {
             &DynamicImage::new_rgb8(64, 64),
             Size::new(6, 3),
             FontSize::new(10, 20),
+            [24, 24, 37, 255],
         )
         .unwrap();
         let mut placements = Placements::default();

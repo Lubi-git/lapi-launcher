@@ -58,14 +58,20 @@ pub struct Assets {
 }
 
 impl Assets {
-    pub fn new(picker: Picker, theme: Option<String>, text: Translator) -> Self {
-        Self::with_legacy(picker, theme, false, text)
+    pub fn new(
+        picker: Picker,
+        theme: Option<String>,
+        image_background: [u8; 4],
+        text: Translator,
+    ) -> Self {
+        Self::with_legacy(picker, theme, false, image_background, text)
     }
 
     pub fn with_legacy(
         picker: Picker,
         theme: Option<String>,
         legacy: bool,
+        image_background: [u8; 4],
         text: Translator,
     ) -> Self {
         let (sender, requests) = mpsc::channel::<Request>();
@@ -83,7 +89,7 @@ impl Assets {
                 });
                 let protocol = image.as_ref().and_then(|image| {
                     if legacy {
-                        LegacyImage::new(image, request.size, picker.font_size())
+                        LegacyImage::new(image, request.size, picker.font_size(), image_background)
                             .ok()
                             .map(Prepared::Legacy)
                     } else {

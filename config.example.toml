@@ -23,9 +23,23 @@ close_on_launch = false
 extra_dirs = []
 # desktop_dir = "~/Desktop"
 
-[buttons]
+[theme]
+# Use "terminal" to preserve the terminal's native foreground or background.
+background = "terminal"
+foreground = "terminal"
+muted = "#7f849c"
+accent = "#cba6f7"
+info = "#89dceb"
+border = "#45475a"
+error = "#f38ba8"
+selection = "#cba6f7"
+header_background = "#cba6f7"
+header_foreground = "terminal"
 launcher_background = "#a6e3a1"
 installer_background = "#dc2626"
 manager_background = "#dc2626"
 launcher_foreground = "#000000"
 installer_manager_foreground = "#ffffff"
+image_background = "#181825"
+border_style = "rounded"
+# Right-click outside an application icon to open the in-terminal theme editor.

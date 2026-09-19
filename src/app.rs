@@ -13,7 +13,7 @@ use nucleo_matcher::{
 use ratatui::layout::{Position, Rect};
 
 use crate::{
-    config::Config,
+    config::{self, Config, THEME_FIELD_COUNT, Theme},
     desktop::{self, Application, Catalog},
     history::History,
     i18n::Translator,
@@ -62,11 +62,41 @@ pub enum Target {
     Search,
     ContextAction,
     ContextClose,
+    ThemeField(usize),
+    ThemePrevious(usize),
+    ThemeNext(usize),
+    ThemeSave,
+    ThemeDefaults,
+    ThemeClose,
 }
 
 pub struct Hit {
     pub area: Rect,
     pub target: Target,
+}
+
+pub struct ThemeEditor {
+    pub base: Theme,
+    pub draft: Theme,
+    pub selected: usize,
+    pub offset: usize,
+    pub editing: bool,
+    pub input: String,
+    pub message: Option<String>,
+}
+
+impl ThemeEditor {
+    fn new(theme: Theme) -> Self {
+        Self {
+            base: theme.clone(),
+            draft: theme,
+            selected: 0,
+            offset: 0,
+            editing: false,
+            input: String::new(),
+            message: None,
+        }
+    }
 }
 
 pub struct App {
@@ -93,6 +123,8 @@ pub struct App {
     pub hits: Vec<Hit>,
     pub help: bool,
     pub context_menu: Option<usize>,
+    pub theme_editor: Option<ThemeEditor>,
+    pub theme_revision: u64,
     pub quit: bool,
     pub next_program: Option<LapiProgram>,
     pub status: String,
@@ -136,6 +168,8 @@ impl App {
             hits: Vec::new(),
             help: false,
             context_menu: None,
+            theme_editor: None,
+            theme_revision: 0,
             quit: false,
             next_program: None,
             status,
@@ -208,6 +242,13 @@ impl App {
         !self.query.is_empty()
     }
 
+    pub fn theme(&self) -> &Theme {
+        self.theme_editor
+            .as_ref()
+            .map(|editor| &editor.draft)
+            .unwrap_or(&self.config.theme)
+    }
+
     pub fn set_content_view(&mut self, content_height: u16, viewport_height: u16) {
         self.content_height = content_height;
         self.content_viewport_height = viewport_height;
@@ -233,6 +274,10 @@ impl App {
                         KeyCode::Enter => self.toggle_desktop_pin(),
                         _ => {}
                     }
+                    return Ok(());
+                }
+                if self.theme_editor.is_some() {
+                    self.handle_theme_key(key.code);
                     return Ok(());
                 }
                 match key.code {
@@ -316,6 +361,10 @@ impl App {
                 }
             }
             Event::Paste(text) if !self.help => {
+                if self.theme_editor.is_some() {
+                    self.append_theme_input(&text);
+                    return Ok(());
+                }
                 let remaining = 256usize.saturating_sub(self.query.chars().count());
                 self.query.extend(
                     text.chars()
@@ -339,6 +388,10 @@ impl App {
                                 Some(Target::ContextAction) => self.toggle_desktop_pin(),
                                 _ => self.context_menu = None,
                             }
+                            return Ok(());
+                        }
+                        if self.theme_editor.is_some() {
+                            self.handle_theme_click(target);
                             return Ok(());
                         }
                         match target {
@@ -379,6 +432,9 @@ impl App {
                         {
                             self.context_menu = Some(index);
                             self.last_click = None;
+                        } else if !matches!(target, Some(Target::App(_, _))) {
+                            self.theme_editor = Some(ThemeEditor::new(self.config.theme.clone()));
+                            self.last_click = None;
                         }
                     }
                     MouseEventKind::ScrollDown | MouseEventKind::ScrollUp => {
@@ -418,6 +474,145 @@ impl App {
             self.system_focus = Some(index);
         } else if self.system_focus == Some(index) {
             self.system_focus = self.expanded.iter().rposition(|expanded| *expanded);
+        }
+    }
+
+    fn handle_theme_key(&mut self, code: KeyCode) {
+        let mut close = false;
+        let mut save = None;
+        let mut invalid_value = false;
+        if let Some(editor) = &mut self.theme_editor {
+            if editor.editing {
+                match code {
+                    KeyCode::Esc => editor.editing = false,
+                    KeyCode::Enter => match editor
+                        .draft
+                        .set_field_value(editor.selected, editor.input.trim())
+                    {
+                        Ok(()) => editor.editing = false,
+                        Err(_) => invalid_value = true,
+                    },
+                    KeyCode::Backspace => {
+                        editor.input.pop();
+                    }
+                    KeyCode::Char(character)
+                        if !character.is_control() && editor.input.chars().count() < 16 =>
+                    {
+                        editor.input.push(character);
+                    }
+                    _ => {}
+                }
+            } else {
+                match code {
+                    KeyCode::Esc => close = true,
+                    KeyCode::Up => {
+                        editor.selected = editor.selected.saturating_sub(1);
+                    }
+                    KeyCode::Down => {
+                        editor.selected = (editor.selected + 1).min(THEME_FIELD_COUNT - 1);
+                    }
+                    KeyCode::Left => editor.draft.cycle_field(editor.selected, -1),
+                    KeyCode::Right => editor.draft.cycle_field(editor.selected, 1),
+                    KeyCode::Enter => {
+                        editor.input = editor.draft.field_value(editor.selected);
+                        editor.editing = true;
+                        editor.message = None;
+                    }
+                    KeyCode::Char('r' | 'R') => editor.draft = Theme::default(),
+                    KeyCode::Char('s' | 'S') => {
+                        save = Some((editor.base.clone(), editor.draft.clone()))
+                    }
+                    _ => {}
+                }
+            }
+        }
+        if close {
+            self.theme_editor = None;
+        }
+        if let Some((base, theme)) = save {
+            self.save_theme(base, theme);
+        }
+        if invalid_value && let Some(editor) = &mut self.theme_editor {
+            editor.message = Some(self.text.theme_invalid_value().into());
+        }
+    }
+
+    fn append_theme_input(&mut self, text: &str) {
+        let Some(editor) = &mut self.theme_editor else {
+            return;
+        };
+        if !editor.editing {
+            return;
+        }
+        let remaining = 16usize.saturating_sub(editor.input.chars().count());
+        editor.input.extend(
+            text.chars()
+                .filter(|character| !character.is_control())
+                .take(remaining),
+        );
+    }
+
+    fn handle_theme_click(&mut self, target: Option<Target>) {
+        let mut close = false;
+        let mut save = None;
+        let mut invalid_value = false;
+        if let Some(editor) = &mut self.theme_editor {
+            if editor.editing {
+                match editor
+                    .draft
+                    .set_field_value(editor.selected, editor.input.trim())
+                {
+                    Ok(()) => editor.editing = false,
+                    Err(_) => invalid_value = true,
+                }
+            }
+            if !invalid_value {
+                match target {
+                    Some(Target::ThemeField(index)) => editor.selected = index,
+                    Some(Target::ThemePrevious(index)) => {
+                        editor.selected = index;
+                        editor.draft.cycle_field(index, -1);
+                    }
+                    Some(Target::ThemeNext(index)) => {
+                        editor.selected = index;
+                        editor.draft.cycle_field(index, 1);
+                    }
+                    Some(Target::ThemeDefaults) => editor.draft = Theme::default(),
+                    Some(Target::ThemeSave) => {
+                        save = Some((editor.base.clone(), editor.draft.clone()))
+                    }
+                    Some(Target::ThemeClose) | None => close = true,
+                    _ => {}
+                }
+            }
+        }
+        if close {
+            self.theme_editor = None;
+        }
+        if let Some((base, theme)) = save {
+            self.save_theme(base, theme);
+        }
+        if invalid_value && let Some(editor) = &mut self.theme_editor {
+            editor.message = Some(self.text.theme_invalid_value().into());
+        }
+    }
+
+    fn save_theme(&mut self, base: Theme, theme: Theme) {
+        match config::save_user_theme(&base, &theme) {
+            Ok(()) => {
+                self.config.theme = theme;
+                self.theme_editor = None;
+                self.theme_revision = self.theme_revision.wrapping_add(1);
+                self.status = self.text.theme_saved().into();
+                self.status_error = false;
+            }
+            Err(error) => {
+                if let Some(editor) = &mut self.theme_editor {
+                    editor.message = Some(format!("{error:#}"));
+                } else {
+                    self.error(format!("{error:#}"));
+                }
+            }
         }
     }
 

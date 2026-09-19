@@ -240,6 +240,86 @@ impl Translator {
             "Application"
         }
     }
+    pub const fn theme_title(self) -> &'static str {
+        if self.is_spanish() { "Tema" } else { "Theme" }
+    }
+    pub const fn theme_hint(self) -> &'static str {
+        if self.is_spanish() {
+            "↑↓ seleccionar · ←→ paleta · Enter editar · S guardar · R restaurar · Esc cancelar"
+        } else {
+            "↑↓ select · ←→ palette · Enter edit · S save · R reset · Esc cancel"
+        }
+    }
+    pub const fn theme_edit_hint(self) -> &'static str {
+        if self.is_spanish() {
+            "Escribe #RRGGBB o terminal · Enter aplicar · Esc cancelar"
+        } else {
+            "Type #RRGGBB or terminal · Enter apply · Esc cancel"
+        }
+    }
+    pub const fn theme_save(self) -> &'static str {
+        if self.is_spanish() { "Guardar" } else { "Save" }
+    }
+    pub const fn theme_defaults(self) -> &'static str {
+        if self.is_spanish() {
+            "Restaurar valores"
+        } else {
+            "Restore defaults"
+        }
+    }
+    pub const fn theme_field(self, index: usize) -> &'static str {
+        match (self.0, index) {
+            (Locale::Spanish, 0) => "Fondo",
+            (Locale::Spanish, 1) => "Texto",
+            (Locale::Spanish, 2) => "Texto atenuado",
+            (Locale::Spanish, 3) => "Acento",
+            (Locale::Spanish, 4) => "Información",
+            (Locale::Spanish, 5) => "Borde",
+            (Locale::Spanish, 6) => "Error",
+            (Locale::Spanish, 7) => "Selección",
+            (Locale::Spanish, 8) => "Fondo de cabecera",
+            (Locale::Spanish, 9) => "Texto de cabecera",
+            (Locale::Spanish, 10) => "Fondo de lanzador",
+            (Locale::Spanish, 11) => "Texto de lanzador",
+            (Locale::Spanish, 12) => "Fondo de instalador",
+            (Locale::Spanish, 13) => "Fondo de gestor",
+            (Locale::Spanish, 14) => "Texto de instalador y gestor",
+            (Locale::Spanish, 15) => "Fondo de imágenes",
+            (Locale::Spanish, 16) => "Estilo de borde",
+            (Locale::English, 0) => "Background",
+            (Locale::English, 1) => "Foreground",
+            (Locale::English, 2) => "Muted text",
+            (Locale::English, 3) => "Accent",
+            (Locale::English, 4) => "Information",
+            (Locale::English, 5) => "Border",
+            (Locale::English, 6) => "Error",
+            (Locale::English, 7) => "Selection",
+            (Locale::English, 8) => "Header background",
+            (Locale::English, 9) => "Header foreground",
+            (Locale::English, 10) => "Launcher background",
+            (Locale::English, 11) => "Launcher foreground",
+            (Locale::English, 12) => "Installer background",
+            (Locale::English, 13) => "Manager background",
+            (Locale::English, 14) => "Installer and Manager text",
+            (Locale::English, 15) => "Image background",
+            (Locale::English, 16) => "Border style",
+            _ => "",
+        }
+    }
+    pub const fn theme_saved(self) -> &'static str {
+        if self.is_spanish() {
+            "Tema guardado en la configuración de usuario"
+        } else {
+            "Theme saved to the user configuration"
+        }
+    }
+    pub const fn theme_invalid_value(self) -> &'static str {
+        if self.is_spanish() {
+            "Usa #RRGGBB, terminal, plain, rounded, double o thick"
+        } else {
+            "Use #RRGGBB, terminal, plain, rounded, double, or thick"
+        }
+    }
     pub fn desktop_updated(self, name: &str) -> String {
         if self.is_spanish() {
             format!("Escritorio actualizado: {name}")
@@ -261,7 +341,7 @@ impl Translator {
                 "F2 / F3 / F4        Expandir sistema / entorno / PC",
                 "Ctrl+↑ / Ctrl+↓     Desplazar la vista",
                 "INSTALADOR / GESTOR   Ejecutar herramientas Lapi",
-                "F5                  Volver a leer aplicaciones",
+                "F5 / clic derecho   Recargar aplicaciones / editar tema",
                 "Ctrl+L / Ctrl+U     Limpiar búsqueda",
                 "Esc                 Limpiar búsqueda; después salir",
                 "Ctrl+C              Salir",
@@ -278,7 +358,7 @@ impl Translator {
                 "F2 / F3 / F4        Expand system / desktop / PC",
                 "Ctrl+↑ / Ctrl+↓     Scroll the view",
                 "INSTALLER / MANAGER Run Lapi tools",
-                "F5                  Reload applications",
+                "F5 / right click    Reload applications / edit theme",
                 "Ctrl+L / Ctrl+U     Clear search",
                 "Esc                 Clear search; then quit",
                 "Ctrl+C              Quit",

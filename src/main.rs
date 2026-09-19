@@ -92,40 +92,15 @@ fn main() -> Result<()> {
         ratatui::restore();
         previous_hook(info);
     }));
-    let mut assets = if app.config.images.enabled {
-        let legacy = matches!(app.config.images.protocol, ImageProtocol::KittyLegacy)
-            || matches!(app.config.images.protocol, ImageProtocol::Auto)
-                && env::var("KONSOLE_VERSION")
-                    .is_ok_and(|value| value.parse::<u32>().is_ok_and(|version| version >= 220400))
-                && env::var_os("TMUX").is_none()
-                && env::var_os("STY").is_none();
-        let mut picker = match app.config.images.protocol {
-            ImageProtocol::Halfblocks => Picker::halfblocks(),
-            _ => Picker::from_query_stdio().unwrap_or_else(|_| Picker::halfblocks()),
-        };
-        match app.config.images.protocol {
-            ImageProtocol::Kitty => picker.set_protocol_type(ProtocolType::Kitty),
-            ImageProtocol::Sixel => picker.set_protocol_type(ProtocolType::Sixel),
-            ImageProtocol::Iterm2 => picker.set_protocol_type(ProtocolType::Iterm2),
-            ImageProtocol::Auto
-                if picker.protocol_type() == ProtocolType::Halfblocks
-                    && env::var_os("WEZTERM_EXECUTABLE").is_some() =>
-            {
-                picker.set_protocol_type(ProtocolType::Iterm2)
-            }
-            _ => {}
-        }
-        picker.set_background_color(Some([24, 24, 37, 255]));
-        Some(if legacy {
-            Assets::with_legacy(picker, app.config.images.icon_theme.clone(), true, app.text)
-        } else {
-            Assets::new(picker, app.config.images.icon_theme.clone(), app.text)
-        })
-    } else {
-        None
-    };
+    let mut assets = create_assets(&app);
+    let mut image_theme_revision = app.theme_revision;
     let mut redraw = true;
     while !app.quit {
+        if image_theme_revision != app.theme_revision {
+            assets = create_assets(&app);
+            image_theme_revision = app.theme_revision;
+            redraw = true;
+        }
         if let Some(assets) = &mut assets {
             redraw |= assets.poll();
             if let Some(warning) = assets.warning.take() {
@@ -144,7 +119,7 @@ fn main() -> Result<()> {
                 ui::draw(frame, &mut app, &mut assets);
             })?;
             if let Some(assets) = &mut assets {
-                if app.help {
+                if app.help || app.theme_editor.is_some() {
                     assets.placements.begin();
                 }
                 assets.placements.flush(&mut io::stdout())?;
@@ -163,6 +138,53 @@ fn main() -> Result<()> {
         return Err(Command::new(program.command()).exec().into());
     }
     Ok(())
+}
+
+fn create_assets(app: &App) -> Option<Assets> {
+    if !app.config.images.enabled {
+        return None;
+    }
+    let legacy = matches!(app.config.images.protocol, ImageProtocol::KittyLegacy)
+        || matches!(app.config.images.protocol, ImageProtocol::Auto)
+            && env::var("KONSOLE_VERSION")
+                .is_ok_and(|value| value.parse::<u32>().is_ok_and(|version| version >= 220400))
+            && env::var_os("TMUX").is_none()
+            && env::var_os("STY").is_none();
+    let mut picker = match app.config.images.protocol {
+        ImageProtocol::Halfblocks => Picker::halfblocks(),
+        _ => Picker::from_query_stdio().unwrap_or_else(|_| Picker::halfblocks()),
+    };
+    match app.config.images.protocol {
+        ImageProtocol::Kitty => picker.set_protocol_type(ProtocolType::Kitty),
+        ImageProtocol::Sixel => picker.set_protocol_type(ProtocolType::Sixel),
+        ImageProtocol::Iterm2 => picker.set_protocol_type(ProtocolType::Iterm2),
+        ImageProtocol::Auto
+            if picker.protocol_type() == ProtocolType::Halfblocks
+                && env::var_os("WEZTERM_EXECUTABLE").is_some() =>
+        {
+            picker.set_protocol_type(ProtocolType::Iterm2)
+        }
+        _ => {}
+    }
+    let (red, green, blue) = app.theme().image_background.components();
+    let image_background = [red, green, blue, 255];
+    picker.set_background_color(Some(image_background));
+    Some(if legacy {
+        Assets::with_legacy(
+            picker,
+            app.config.images.icon_theme.clone(),
+            true,
+            image_background,
+            app.text,
+        )
+    } else {
+        Assets::new(
+            picker,
+            app.config.images.icon_theme.clone(),
+            image_background,
+            app.text,
+        )
+    })
 }
 
 struct TerminalGuard;

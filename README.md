@@ -108,7 +108,9 @@ Lapi Launcher reads configuration with **user-first priority**:
 
 On first run, it creates a user configuration and places the official `logo.png` beside it. The default relative logo path always resolves to the logo closest to the configuration file. A custom logo can be any supported raster image; `PNG` is recommended.
 
-Use [config.example.toml](config.example.toml) to configure the logo, terminal-image protocol, language, recent-item limit, close-on-launch behavior, application directories, and Launcher/Installer/Manager button colors.
+Use [config.example.toml](config.example.toml) to configure the logo, terminal-image protocol, language, recent-item limit, close-on-launch behavior, application directories, and the complete interface theme.
+
+Right-click anywhere outside an application icon to open the in-terminal theme editor. It previews changes immediately, offers a curated palette with `Left` / `Right`, accepts exact `#RRGGBB` values (or `terminal` for native terminal foreground and background), and writes only saved changes to the user configuration. `border_style` also supports `plain`, `rounded`, `double`, and `thick`.
 
 ## Lapi ecosystem
 
